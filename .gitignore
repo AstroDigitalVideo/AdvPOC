@@ -50,3 +50,12 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+/.build-debug
+/.codelite
+/Debug
+/TestAdvPOC/Debug
+/AdvPOC.mk
+/AdvPOC.txt
+/Makefile
+/TestAdvPOC/TestAdvPOC.mk
+/TestAdvPOC/TestAdvPOC.txt

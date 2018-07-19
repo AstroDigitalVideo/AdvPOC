@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeLite_Workspace Name="Adv POC" Database="/Work/ADV Version 2/AdvPOC/.codelite/Adv POC.tags">
+  <Project Name="AdvPOC" Path="AdvPOC.project" Active="No"/>
+  <Project Name="TestAdvPOC" Path="TestAdvPOC/TestAdvPOC.project" Active="Yes"/>
+  <BuildMatrix>
+    <WorkspaceConfiguration Name="Debug" Selected="yes">
+      <Project Name="AdvPOC" ConfigName="Debug"/>
+      <Project Name="TestAdvPOC" ConfigName="Debug"/>
+    </WorkspaceConfiguration>
+    <WorkspaceConfiguration Name="Release" Selected="yes">
+      <Project Name="AdvPOC" ConfigName="Release"/>
+      <Project Name="TestAdvPOC" ConfigName="Release"/>
+    </WorkspaceConfiguration>
+  </BuildMatrix>
+</CodeLite_Workspace>
