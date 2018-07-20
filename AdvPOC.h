@@ -11,7 +11,7 @@
 #include "uthash.h" 
 #include "utarray.h"
 
-#define CORE_VERSION "2.0f"
+#define CORE_VERSION "c2.0g"
 
 extern char* g_CurrentAdvFile;
 extern FILE* g_AdvFile;
@@ -136,6 +136,7 @@ unsigned int m_FrameNo;
 unsigned char *m_FrameBytes;
 unsigned int m_FrameBufferIndex; 
 unsigned int m_ElapedTime;
+int m_LastSystemSpecificFileError = 0;
 
 #define MAX_MAP_KEY 64
 #define MAX_MAP_VALUE 256
@@ -178,15 +179,11 @@ struct mapIntFloat {
 
 #define MAP_ADD_STR_STR(pair_key,pair_value,dict,rv)                    \
 do {                                                                    \
-    if (NULL == pair_key)                                               \
-    {                                                                   \
-		rv = E_ADV_FILE_HASH_KEY_NULL;                                  \
-	}                                                                   \
-	else if (strlen(pair_key) > MAX_MAP_KEY)                            \
+	if (strlen(pair_key) > MAX_MAP_KEY)                                 \
 	{                                                                   \
-	    rv = E_ADV_FILE_HASH_KEY_TOO_LONG;	                            \
+	    rv = E_ADV_FILE_HASH_KEY_TOO_LONG;                              \
 	}                                                                   \
-	else if (NULL != pair_value && strlen(pair_value) > MAX_MAP_VALUE)  \
+	else if (strlen(pair_value) > MAX_MAP_VALUE)                        \
     {                                                                   \
 	    rv = E_ADV_FILE_HASH_VALUE_TOO_LONG;                            \
 	}                                                                   \

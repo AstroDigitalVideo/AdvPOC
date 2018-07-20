@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CodeLite_Project Name="TestAdvPOC" InternalType="Console">
   <Plugins>
+    <Plugin Name="qmake">
+      <![CDATA[00010001N0005Debug000000000000]]>
+    </Plugin>
     <Plugin Name="CMakePlugin">
       <![CDATA[[{
   "name": "Debug",
@@ -13,14 +16,16 @@
   "parentProject": ""
  }]]]>
     </Plugin>
-    <Plugin Name="qmake">
-      <![CDATA[00010001N0005Debug000000000000]]>
-    </Plugin>
   </Plugins>
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="src">
     <File Name="main.c"/>
+    <File Name="include.h"/>
+    <File Name="CuTest.c"/>
+    <File Name="CuTest.h"/>
+    <File Name="TestUT.h"/>
+    <File Name="TestBasicAdv.h"/>
   </VirtualDirectory>
   <Settings Type="Executable">
     <GlobalSettings>
@@ -37,7 +42,7 @@
         <IncludePath Value="."/>
       </Compiler>
       <Linker Options="" Required="yes">
-        <LibraryPath Value="C:\Work\ADV Version 2\AdvPOC\Debug"/>
+        <LibraryPath Value="../Debug"/>
         <Library Value="AdvPOC"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>

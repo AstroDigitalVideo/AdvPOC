@@ -36,15 +36,14 @@ ADVRESULT AdvNewFile(const char* fileName, bool overwriteExisting)
 		strncpy_s(g_CurrentAdvFile, len + 1, fileName, len + 1);
 		
 		g_AdvFile = advfopen(fileName, "wb");
-		if (g_AdvFile == 0) return E_ADV_IO_ERROR;
-		
+		if (g_AdvFile == 0) {
+			m_LastSystemSpecificFileError = errno;
+			return E_ADV_IO_ERROR;
+		}
+
 		m_ImageSectionSet = false;
 		
 		m_FrameBytes = NULL;
-		// TODO:
-		//ImageSection = nullptr;
-		//StatusSection = nullptr;
-		//m_Index = nullptr;
 
 		m_NumberOfMainFrames = 0;
 		m_NumberOfCalibrationFrames = 0;
@@ -56,7 +55,7 @@ ADVRESULT AdvNewFile(const char* fileName, bool overwriteExisting)
 		m_ImageAdded = false;
 		m_FrameStarted = false;
 		m_LastSystemSpecificFileError = 0;
-		m_FileDefinitionMode = true;		
+		m_FileDefinitionMode = true;
 	}
 
 	return S_OK;
@@ -108,6 +107,11 @@ ADVRESULT AdvAddMainStreamTag(const char* tagName, const char* tagValue)
 	if (!m_FileDefinitionMode)
 		return E_ADV_CHANGE_NOT_ALLOWED_RIGHT_NOW;
 
+    if (NULL == tagValue)
+    {
+        return E_ADV_FILE_HASH_KEY_NULL;
+	}
+    
     ADVRESULT rv = S_OK;
 	MAP_ADD_STR_STR(tagName, tagValue, m_MainStreamTags, rv);
 	return rv;
@@ -121,7 +125,12 @@ ADVRESULT AdvAddCalibrationStreamTag(const char* tagName, const char* tagValue)
 	if (!m_FileDefinitionMode)
 		return E_ADV_CHANGE_NOT_ALLOWED_RIGHT_NOW;
 	
-	ADVRESULT rv = S_OK;	
+    if (NULL == tagValue)
+    {
+        return E_ADV_FILE_HASH_KEY_NULL;
+	}
+    
+	ADVRESULT rv = S_OK;
 	MAP_ADD_STR_STR(tagName, tagValue, m_CalibrationStreamTags, rv);
 	return rv;
 }
@@ -206,7 +215,7 @@ void AdvUpdateMaxBuffSize(int tagType, int direction)
 			
 		case Long64:
 			MaxFrameBufferSize+=8*direction;
-			break;			
+			break;
 			
 		case Real4:
 			MaxFrameBufferSize+=4*direction;
@@ -267,7 +276,7 @@ ADVRESULT AdvDefineStatusSectionTag(const char* tagName, int tagType, unsigned i
 	}  
 
     *addedTagId = index;
-	return S_OK;
+	return rv;
 }
 
 ADVRESULT AdvAddFileTag(const char* tagName, const char* tagValue)
@@ -277,6 +286,11 @@ ADVRESULT AdvAddFileTag(const char* tagName, const char* tagValue)
 
 	if (!m_FileDefinitionMode)
 		return E_ADV_CHANGE_NOT_ALLOWED_RIGHT_NOW;
+
+    if (NULL == tagValue)
+    {
+        return E_ADV_FILE_HASH_KEY_NULL;
+	}
 
     ADVRESULT rv = S_OK;
     MAP_ADD_STR_STR(tagName, tagValue, m_FileTags, rv);
@@ -295,7 +309,7 @@ ADVRESULT AdvAddOrUpdateImageSectionTag(const char* tagName, const char* tagValu
 
 ADVRESULT AdvFile_EndFile()
 {
-	if (g_FileStarted == false)
+	if (!g_FileStarted)
 		return E_ADV_FILE_NOT_OPEN;
 
     /* TODO
@@ -345,7 +359,7 @@ ADVRESULT AdvFile_EndFile()
 	
 	g_AdvFile = 0;
 
-	return S_OK;	
+	return S_OK;
 }
 
 ADVRESULT AdvEndFile()
@@ -353,7 +367,15 @@ ADVRESULT AdvEndFile()
 	ADVRESULT rv = S_OK;
 
 	if (g_AdvFile != 0)
+    {
 		rv = AdvFile_EndFile();
+
+        if (g_AdvFile != 0)
+        {
+            advfclose(g_AdvFile);
+            g_AdvFile = 0;
+        }
+    }
 	else
 		rv = E_ADV_NOFILE;
 	
@@ -371,7 +393,7 @@ ADVRESULT AdvEndFile()
 	MAP_FREE_STR_STR(m_CalibrationStreamTags);
 	
 	// Status section
-	utarray_free(m_TagDefinitionNames);
+    if (m_TagDefinitionNames) utarray_free(m_TagDefinitionNames);
 	MAP_FREE_STR_INT(m_TagDefinition);
 	MAP_FREE_INT_STR(m_FrameStatusTags);
 	MAP_FREE_INT_INT(m_FrameStatusTagsUInt8);
@@ -442,20 +464,89 @@ ADVRESULT AdvEndFrame()
 
 int AdvGetLastSystemSpecificFileError()
 {
-	
+	return m_LastSystemSpecificFileError;
 }
 
 void GetLibraryVersion(char* version)
 {
-	
+	strcpy_s(version, strlen(CORE_VERSION) + 1, CORE_VERSION);
 }
 
-void GetLibraryPlatformId( char* platform)
+void GetLibraryPlatformId(char* platform)
 {
-	
+#define PLATFORM_WIN_MSVC_32 "MS VC++, x86, Windows"
+#define PLATFORM_WIN_MSVC_64 "MS VC++, AMD64, Windows"
+#define PLATFORM_WIN_GNU_32 "GNU GCC/G++, x86, Windows"
+#define PLATFORM_WIN_GNU_64 "GNU GCC/G++, AMD64, Windows"
+#define PLATFORM_LINUX_GNU "GNU GCC/G++, Linux"
+#define PLATFORM_OSX_GNU "GNU GCC/G++, OSX"
+#define PLATFORM_UNKNOWN "Unknown"
+
+#ifdef MSVC
+	#if INTPTR_MAX == INT32_MAX
+		strcpy_s(platform, strlen(PLATFORM_WIN_MSVC_32) + 1, PLATFORM_WIN_MSVC_32);
+	#elif INTPTR_MAX == INT64_MAX
+		strcpy_s(platform, strlen(PLATFORM_WIN_MSVC_64) + 1, PLATFORM_WIN_MSVC_64);
+	#endif
+#elif __linux__
+	strcpy_s(platform, strlen(PLATFORM_LINUX_GNU) + 1, PLATFORM_LINUX_GNU);
+#elif __APPLE__
+	strcpy_s(platform, strlen(PLATFORM_OSX_GNU) + 1, PLATFORM_OSX_GNU);
+#elif __GNUC__ || __GNUG__
+	#if __x86_64__ || __ppc64__ || _WIN64
+		strcpy_s(platform, strlen(PLATFORM_WIN_GNU_64) + 1, PLATFORM_WIN_GNU_64);
+	#else
+		strcpy_s(platform, strlen(PLATFORM_WIN_GNU_32) + 1, PLATFORM_WIN_GNU_32);
+	#endif	
+#else
+	strcpy_s(platform, strlen(PLATFORM_UNKNOWN) + 1, PLATFORM_UNKNOWN);
+#endif
 }
 
 int GetLibraryBitness()
 {
+	#if __GNUC__
 	
+		#if defined(_WIN64)
+			// Windows compilation with GCC
+			return 64;
+		#elif defined(_WIN32)
+			// Windows compilation with GCC
+			return 32;
+		#endif
+		
+		// Linux/OSX Compilation
+		
+		// All modern 64-bit Unix systems use LP64. MacOS X and Linux are both modern 64-bit systems.
+		//	Type           ILP64   LP64   LLP64
+		//  char              8      8       8
+		//  short            16     16      16
+		//  int              64     32      32
+		//  long             64     64      32
+		//  long long        64     64      64
+		//  pointer          64     64      64
+		//------------------------------------
+		// On a Unix system (gcc/g++ compiler) the bitness can be determined by the size of 'long'
+		return sizeof(long) * 8;
+		
+	#endif
+	#if _WIN32 || _WIN64
+
+		#if defined(_WIN64)
+			return 64;  // 64-bit programs run only on Win64
+			
+		#elif defined(_WIN32)
+			//// 32-bit programs run on both 32-bit and 64-bit Windows so must sniff
+			//BOOL f64 = FALSE;
+			//if (IsWow64Process(GetCurrentProcess(), &f64) && f64)
+			//	return 64;
+			//else
+			//	return 32;
+
+			// We only care if the binary is 32 or 64 bit, so ignore the IsWow64Process thing
+			return 32;
+		#else
+			return 16; // Win64 does not support Win16
+		#endif
+	#endif
 }
