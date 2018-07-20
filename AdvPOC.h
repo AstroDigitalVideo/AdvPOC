@@ -8,7 +8,8 @@
 #include "cross_platform.h"
 
 // https://troydhanson.github.io/uthash/
-#include "uthash.h"
+#include "uthash.h" 
+#include "utarray.h"
 
 #define CORE_VERSION "2.0f"
 
@@ -21,6 +22,16 @@ enum GetByteOperation
 	None = 0,
 	ConvertTo12BitPacked = 1,
 	ConvertTo8BitBytesLooseHighByte = 2
+};
+
+enum Adv2TagType
+{
+	Int8 = 0,
+	Int16 = 1,
+	Int32 = 2,
+	Long64 = 3,
+	Real4 = 4,
+	UTF8String = 5
 };
 
 struct AdvFileInfo
@@ -132,7 +143,37 @@ unsigned int m_ElapedTime;
 struct mapCharChar {
     char key[MAX_MAP_KEY];
     char value[MAX_MAP_VALUE];
-    UT_hash_handle hh;  /* makes this structure hashable */
+    UT_hash_handle hh;
+};
+
+struct mapCharInt {
+    char key[MAX_MAP_KEY];
+    int value;
+    UT_hash_handle hh;
+};
+
+struct mapIntChar {
+    int key;
+    char value[MAX_MAP_VALUE];
+    UT_hash_handle hh;
+};
+
+struct mapIntInt {
+    int key;
+    int value;
+    UT_hash_handle hh;
+};
+
+struct mapIntInt64 {
+    int key;
+    int64_t value;
+    UT_hash_handle hh;
+};
+
+struct mapIntFloat {
+    int key;
+    float value;
+    UT_hash_handle hh;
 };
 
 #define MAP_ADD_STR_STR(pair_key,pair_value,dict,rv)                    \
@@ -167,15 +208,59 @@ do {                                                                    \
 	}                                                                   \
 } while (0)                                                             \
 
-void freeCharCharMap(struct mapCharChar *dict)
-{
-	struct mapCharChar *current_item, *tmp;
+#define MAP_FREE_STR_STR(dict)                                          \
+do {                                                                    \
+	struct mapCharChar *current_item, *tmp;                             \
+	HASH_ITER(hh, dict, current_item, tmp) {                            \
+	HASH_DEL(dict,current_item);                                        \
+	   free(current_item);                                              \
+	}                                                                   \
+} while (0)                                                             \
 
-	HASH_ITER(hh, dict, current_item, tmp) {
-	HASH_DEL(dict,current_item);
-	   free(current_item);
-	}
-}
+#define MAP_FREE_INT_INT(dict)                                          \
+do {                                                                    \
+	struct mapIntInt *current_item, *tmp;                               \
+	HASH_ITER(hh, dict, current_item, tmp) {                            \
+	HASH_DEL(dict,current_item);                                        \
+	   free(current_item);                                              \
+	}                                                                   \
+} while (0)                                                             \
+
+#define MAP_FREE_INT_STR(dict)                                          \
+do {                                                                    \
+	struct mapIntChar *current_item, *tmp;                              \
+	HASH_ITER(hh, dict, current_item, tmp) {                            \
+	HASH_DEL(dict,current_item);                                        \
+	   free(current_item);                                              \
+	}                                                                   \
+} while (0)                                                             \
+
+#define MAP_FREE_STR_INT(dict)                                          \
+do {                                                                    \
+	struct mapCharInt *current_item, *tmp;                              \
+	HASH_ITER(hh, dict, current_item, tmp) {                            \
+	HASH_DEL(dict,current_item);                                        \
+	   free(current_item);                                              \
+	}                                                                   \
+} while (0)                                                             \
+
+#define MAP_FREE_INT_INT64(dict)                                        \
+do {                                                                    \
+	struct mapIntInt64 *current_item, *tmp;                             \
+	HASH_ITER(hh, dict, current_item, tmp) {                            \
+	HASH_DEL(dict,current_item);                                        \
+	   free(current_item);                                              \
+	}                                                                   \
+} while (0)                                                             \
+
+#define MAP_FREE_INT_FLOAT(dict)                                        \
+do {                                                                    \
+	struct mapIntFloat *current_item, *tmp;                             \
+	HASH_ITER(hh, dict, current_item, tmp) {                            \
+	HASH_DEL(dict,current_item);                                        \
+	   free(current_item);                                              \
+	}                                                                   \
+} while (0)                                                             \
 
 struct mapCharChar *m_FileTags = NULL;
 struct mapCharChar *m_UserMetadataTags = NULL;
@@ -211,7 +296,25 @@ bool UsesCRC;
 int MaxPixelValue;
 bool IsColourImage;
 char ImageBayerPattern[128];
-// Image Section
+
+// Status Section
+int MaxFrameBufferSize;
+int64_t UtcTimestampAccuracyInNanoseconds;
+int64_t m_UtcStartTimeNanosecondsSinceAdvZeroEpoch;
+unsigned int m_UtcExposureNanoseconds;
+bool m_FrameStatusLoaded;
+bool m_SectionDefinitionMode;
+
+UT_array *m_TagDefinitionNames;
+
+struct mapCharInt *m_TagDefinition = NULL;
+
+struct mapIntChar *m_FrameStatusTags = NULL;
+struct mapIntInt *m_FrameStatusTagsUInt8 = NULL;
+struct mapIntInt *m_FrameStatusTagsUInt16 = NULL;
+struct mapIntInt *m_FrameStatusTagsUInt32 = NULL;
+struct mapIntInt64 *m_FrameStatusTagsUInt64 = NULL;
+struct mapIntFloat *m_FrameStatusTagsReal = NULL;
 
 // Helper functions
 ADVRESULT AdvFile_EndFile();

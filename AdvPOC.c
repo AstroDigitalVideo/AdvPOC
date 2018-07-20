@@ -174,12 +174,100 @@ ADVRESULT AdvDefineImageLayout(unsigned char layoutId, const char* layoutType, c
 
 ADVRESULT AdvDefineStatusSection(int64_t utcTimestampAccuracyInNanoseconds)
 {
-	return E_NOTIMPL;
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+
+	MaxFrameBufferSize = 0;
+	UtcTimestampAccuracyInNanoseconds = utcTimestampAccuracyInNanoseconds;
+
+    utarray_new(m_TagDefinitionNames, &ut_str_icd);
+
+	m_FrameStatusLoaded = false;
+	m_SectionDefinitionMode = true;
+	
+	return S_OK;
+}
+
+void AdvUpdateMaxBuffSize(int tagType, int direction)
+{
+	switch(tagType)
+	{
+		case Int8:
+			MaxFrameBufferSize+=1*direction;
+			break;
+			
+		case Int16:
+			MaxFrameBufferSize+=2*direction;
+			break;
+
+		case Int32:
+			MaxFrameBufferSize+=4*direction;
+			break;
+			
+		case Long64:
+			MaxFrameBufferSize+=8*direction;
+			break;			
+			
+		case Real4:
+			MaxFrameBufferSize+=4*direction;
+			break;	
+			
+		case UTF8String:
+			MaxFrameBufferSize+=0x10001*direction;
+			break;
+	}	
 }
 
 ADVRESULT AdvDefineStatusSectionTag(const char* tagName, int tagType, unsigned int* addedTagId)
 {
-	return E_NOTIMPL;	
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+
+	if (!m_TagDefinitionNames)
+		return E_ADV_STATUS_SECTION_UNDEFINED;
+
+	if (!m_SectionDefinitionMode)
+		return E_ADV_CHANGE_NOT_ALLOWED_RIGHT_NOW;
+
+	
+	ADVRESULT rv = S_OK;
+	
+	char **p = NULL;
+	int index = 0;
+	bool found = false;
+	while ( (p=(char**)utarray_next(m_TagDefinitionNames,p))) {
+       if (strcmp(*p, tagName) == 0) 
+	   {
+		   found = true;
+		   break;
+	   }
+	   index++;
+    }
+	 
+	if (found)
+	{
+		// Update existing
+		struct mapCharInt *s;
+		HASH_FIND_STR(m_TagDefinition, tagName, s);
+		AdvUpdateMaxBuffSize(s->value, -1);
+		s->value = tagType;
+		AdvUpdateMaxBuffSize(tagType, 1);
+		rv = S_ADV_TAG_REPLACED;
+	}
+	else
+	{
+		// Add new 
+	   struct mapCharInt *s;
+	   s = (struct mapCharInt *)malloc(sizeof *s); 
+	   strcpy(s->key, tagName);
+	   s->value = tagType;
+	   HASH_ADD_STR(m_TagDefinition, key, s );
+	   utarray_push_back(m_TagDefinitionNames, &tagName);
+	   AdvUpdateMaxBuffSize(tagType, 1);
+	}  
+
+    *addedTagId = index;
+	return S_OK;
 }
 
 ADVRESULT AdvAddFileTag(const char* tagName, const char* tagValue)
@@ -275,11 +363,22 @@ ADVRESULT AdvEndFile()
 		g_CurrentAdvFile = NULL;
 	}
 	
-	freeCharCharMap(m_FileTags);
-	freeCharCharMap(m_ImageTags);
-	freeCharCharMap(m_UserMetadataTags);
-	freeCharCharMap(m_MainStreamTags);
-	freeCharCharMap(m_CalibrationStreamTags);
+	// File
+	MAP_FREE_STR_STR(m_FileTags);
+	MAP_FREE_STR_STR(m_ImageTags);
+	MAP_FREE_STR_STR(m_UserMetadataTags);
+	MAP_FREE_STR_STR(m_MainStreamTags);
+	MAP_FREE_STR_STR(m_CalibrationStreamTags);
+	
+	// Status section
+	utarray_free(m_TagDefinitionNames);
+	MAP_FREE_STR_INT(m_TagDefinition);
+	MAP_FREE_INT_STR(m_FrameStatusTags);
+	MAP_FREE_INT_INT(m_FrameStatusTagsUInt8);
+	MAP_FREE_INT_INT(m_FrameStatusTagsUInt16);
+	MAP_FREE_INT_INT(m_FrameStatusTagsUInt32);
+	MAP_FREE_INT_INT64(m_FrameStatusTagsUInt64);
+	MAP_FREE_INT_FLOAT(m_FrameStatusTagsReal);
 	
 	g_FileStarted = false;
 	return rv;

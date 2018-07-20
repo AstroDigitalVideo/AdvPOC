@@ -45,6 +45,16 @@ unsigned int MILLI_TO_NANO = 1000000;
 
 #include "..\uthash.h"
 
+enum Adv2TagType
+{
+	Int8 = 0,
+	Int16 = 1,
+	Int32 = 2,
+	Long64 = 3,
+	Real4 = 4,
+	UTF8String = 5
+};
+
 struct my_struct {
     int id;                    /* key */
     char name[10];
@@ -128,9 +138,29 @@ void TestCharCharMap()
 	HASH_FIND_STR( tags, tag_id, tag);  /* s: output pointer */
 }
 
+#include "..\utarray.h" // https://troydhanson.github.io/utarray/
+
+void TestArray()
+{
+	UT_array *strs;
+	char *s, **p;
+
+	utarray_new(strs,&ut_str_icd);
+
+	s = "hello"; utarray_push_back(strs, &s);
+	s = "world"; utarray_push_back(strs, &s);
+	p = NULL;
+	while ( (p=(char**)utarray_next(strs,p))) {
+		printf("%s\n",*p);
+	}
+
+	utarray_free(strs);	
+}
+
 int main(int argc, char **argv)
 {
 	//TestCharCharMap();
+	//TestArray();
 	
 	// TODO: Use CuTest framework to write unit tests
 	AdvNewFile("C:\\Work\\ADV Version 2\\AdvPOC\\Debug\\test.adv", true);
@@ -140,6 +170,10 @@ int main(int argc, char **argv)
 	AdvDefineImageSection(800, 600, 16);
 	AdvDefineImageLayout(1, "FULL-IMAGE-RAW", "UNCOMPRESSED", 16);
 	AdvDefineStatusSection(1 * MILLI_TO_NANO /* 1ms */);
+	unsigned int tagId;
+	AdvDefineStatusSectionTag("Tag1", Int32, &tagId);
+	AdvDefineStatusSectionTag("Tag2", Real4, &tagId);
+	AdvDefineStatusSectionTag("Tag2", UTF8String, &tagId);
 	
 	AdvEndFile();
 	
