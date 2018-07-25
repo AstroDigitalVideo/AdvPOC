@@ -19,7 +19,7 @@ extern ADVRESULT AdvDefineStatusSection(int64_t utcTimestampAccuracyInNanosecond
 extern ADVRESULT AdvDefineStatusSectionTag(const char* tagName, int tagType, unsigned int* addedTagId);
 extern ADVRESULT AdvAddFileTag(const char* tagName, const char* tagValue);
 extern ADVRESULT AdvAddUserTag(const char* tagName, const char* tagValue);
-extern ADVRESULT AdvAddOrUpdateImageSectionTag(const char* tagName, const char* tagValue);
+extern ADVRESULT AdvAddImageSectionTag(const char* tagName, const char* tagValue);
 extern ADVRESULT AdvEndFile();
 extern ADVRESULT AdvBeginFrameWithTicks(unsigned int streamId, int64_t startFrameTicks, int64_t endFrameTicks, int64_t elapsedTicksSinceFirstFrame, int64_t utcStartTimeNanosecondsSinceAdvZeroEpoch, unsigned int utcExposureNanoseconds);
 extern ADVRESULT AdvBeginFrame(unsigned int streamId, int64_t utcStartTimeNanosecondsSinceAdvZeroEpoch, unsigned int utcExposureNanoseconds);

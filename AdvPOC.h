@@ -274,6 +274,9 @@ unsigned char *m_FrameBytes;
 unsigned char m_PreviousLayoutId;
 unsigned int m_NumFramesInThisLayoutId;
 bool m_ImageSectionSet;
+enum ImageByteOrder ByteOrder;
+bool UsesCRC;
+int MaxPixelValue;
 
 struct mapCharChar *m_ImageTags = NULL;
 
@@ -330,7 +333,7 @@ DLL_PUBLIC ADVRESULT AdvDefineStatusSection(int64_t utcTimestampAccuracyInNanose
 DLL_PUBLIC ADVRESULT AdvDefineStatusSectionTag(const char* tagName, int tagType, unsigned int* addedTagId);
 DLL_PUBLIC ADVRESULT AdvAddFileTag(const char* tagName, const char* tagValue);
 DLL_PUBLIC ADVRESULT AdvAddUserTag(const char* tagName, const char* tagValue);
-DLL_PUBLIC ADVRESULT AdvAddOrUpdateImageSectionTag(const char* tagName, const char* tagValue);
+DLL_PUBLIC ADVRESULT AdvAddImageSectionTag(const char* tagName, const char* tagValue);
 DLL_PUBLIC ADVRESULT AdvEndFile();
 DLL_PUBLIC ADVRESULT AdvBeginFrameWithTicks(unsigned int streamId, int64_t startFrameTicks, int64_t endFrameTicks, int64_t elapsedTicksSinceFirstFrame, int64_t utcStartTimeNanosecondsSinceAdvZeroEpoch, unsigned int utcExposureNanoseconds);
 DLL_PUBLIC ADVRESULT AdvBeginFrame(unsigned int streamId, int64_t utcStartTimeNanosecondsSinceAdvZeroEpoch, unsigned int utcExposureNanoseconds);

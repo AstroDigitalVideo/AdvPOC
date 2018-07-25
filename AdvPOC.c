@@ -178,6 +178,7 @@ ADVRESULT AdvDefineImageSection(unsigned short width, unsigned short height, uns
 
 ADVRESULT AdvDefineImageLayout(unsigned char layoutId, const char* layoutType, const char* compression, unsigned char layoutBpp)
 {
+	// Int -> Struct
 	return E_NOTIMPL;
 }
 
@@ -292,8 +293,8 @@ ADVRESULT AdvAddFileTag(const char* tagName, const char* tagValue)
         return E_ADV_FILE_HASH_KEY_NULL;
 	}
 
-    ADVRESULT rv = S_OK;
-    MAP_ADD_STR_STR(tagName, tagValue, m_FileTags, rv);
+	ADVRESULT rv = S_OK;
+	MAP_ADD_STR_STR(tagName, tagValue, m_FileTags, rv);
 	return rv;
 }
 
@@ -302,9 +303,45 @@ ADVRESULT AdvAddUserTag(const char* tagName, const char* tagValue)
 	return E_NOTIMPL;
 }
 
-ADVRESULT AdvAddOrUpdateImageSectionTag(const char* tagName, const char* tagValue)
+ADVRESULT AdvAddImageSectionTag(const char* tagName, const char* tagValue)
 {
-	return E_NOTIMPL;
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+
+	if (!m_ImageSectionSet)
+		return E_ADV_IMAGE_SECTION_UNDEFINED;
+	
+	if (!m_SectionDefinitionMode)
+		return E_ADV_CHANGE_NOT_ALLOWED_RIGHT_NOW;
+
+	if (strcmp("IMAGE-BYTE-ORDER", tagName) == 0)
+	{
+		ByteOrder = LittleEndian;
+
+		if (strcmp("BIG-ENDIAN", tagValue) == 0)
+			ByteOrder = BigEndian;
+	}
+
+	if (strcmp("SECTION-DATA-REDUNDANCY-CHECK", tagName) == 0)
+	{
+		UsesCRC = strcmp("CRC32", tagValue) == 0;
+	}
+
+	if (strcmp("IMAGE-MAX-PIXEL-VALUE", tagName) == 0 && tagValue != NULL)
+	{
+		MaxPixelValue = atoi(tagValue);
+	}
+
+	if (strcmp("IMAGE-BAYER-PATTERN", tagName) == 0 && tagValue != NULL)
+	{
+		m_RGBorBGR = strcmp("RGB", tagValue) == 0 || strcmp("BGR", tagValue) == 0;
+		IsColourImage = strcmp("MONOCHROME", tagValue) != 0;
+		strcpy_s(ImageBayerPattern, strlen(tagValue) + 1, tagValue);
+	}
+
+	ADVRESULT rv = S_OK;
+	MAP_ADD_STR_STR(tagName, tagValue, m_ImageTags, rv);
+	return rv;
 }
 
 ADVRESULT AdvFile_EndFile()
