@@ -177,6 +177,14 @@ struct mapIntFloat {
     UT_hash_handle hh;
 };
 
+struct mapIntImageLayout {
+    int key;
+    char layoutType[MAX_MAP_VALUE];
+	char compression[MAX_MAP_VALUE];
+	unsigned char layoutBpp;
+    UT_hash_handle hh;
+};
+
 #define MAP_ADD_STR_STR(pair_key,pair_value,dict,rv)                    \
 do {                                                                    \
 	if (strlen(pair_key) > MAX_MAP_KEY)                                 \
@@ -202,6 +210,32 @@ do {                                                                    \
 			rv = S_ADV_TAG_REPLACED;                                    \
 		}                                                               \
 		strcpy(s->value, pair_value);                                   \
+	}                                                                   \
+} while (0)                                                             \
+
+#define MAP_ADD_INT_IMG_LAYOUT(pair_key,typ,cmpr,bpp,dict,rv)           \
+do {                                                                    \
+	if (strlen(typ) > MAX_MAP_VALUE || strlen(cmpr) > MAX_MAP_VALUE)    \
+    {                                                                   \
+	    rv = E_ADV_FILE_HASH_VALUE_TOO_LONG;                            \
+	}                                                                   \
+	else                                                                \
+	{                                                                   \
+		rv = S_OK;                                                      \
+		struct mapIntImageLayout *s;                                    \
+		HASH_FIND_INT(dict, &pair_key, s);                              \
+		if (s==NULL) {                                                  \
+		  s = (struct mapIntImageLayout *)malloc(sizeof *s);            \
+		  s->key = pair_key;                                            \
+		  HASH_ADD_INT(dict, pair_key, s );                                  \
+		}                                                               \
+        else                                                            \
+		{                                                               \
+			rv = S_ADV_TAG_REPLACED;                                    \
+		}                                                               \
+		strcpy(s->layoutType, typ);                                     \
+		strcpy(s->compression, cmpr);                                   \
+		s->layoutBpp = bpp;                                             \
 	}                                                                   \
 } while (0)                                                             \
 
@@ -259,6 +293,15 @@ do {                                                                    \
 	}                                                                   \
 } while (0)                                                             \
 
+#define MAP_FREE_INT_IMG_LAYOUT(dict)                                   \
+do {                                                                    \
+	struct mapIntImageLayout *current_item, *tmp;                       \
+	HASH_ITER(hh, dict, current_item, tmp) {                            \
+	HASH_DEL(dict,current_item);                                        \
+	   free(current_item);                                              \
+	}                                                                   \
+} while (0)  
+
 struct mapCharChar *m_FileTags = NULL;
 struct mapCharChar *m_UserMetadataTags = NULL;
 struct mapCharChar *m_MainStreamTags = NULL;
@@ -273,15 +316,16 @@ unsigned char *m_FrameBytes;
 #define UNINITIALIZED_LAYOUT_ID 0	
 unsigned char m_PreviousLayoutId;
 unsigned int m_NumFramesInThisLayoutId;
-bool m_ImageSectionSet;
+bool m_ImageSectionSet = false;
 enum ImageByteOrder ByteOrder;
 bool UsesCRC;
 int MaxPixelValue;
 
-struct mapCharChar *m_ImageTags = NULL;
+// Status Section
+bool m_StatusSectionSet = false;
 
-// TODO:
-//map<unsigned char, Adv2ImageLayout*> m_ImageLayouts;
+struct mapCharChar *m_ImageTags = NULL;
+struct mapIntImageLayout *m_ImageLayouts = NULL;
 
 bool m_RGBorBGR;
 bool m_SectionDefinitionMode;
@@ -305,7 +349,7 @@ unsigned int m_UtcExposureNanoseconds;
 bool m_FrameStatusLoaded;
 bool m_SectionDefinitionMode;
 
-UT_array *m_TagDefinitionNames;
+UT_array *m_TagDefinitionNames = NULL;
 
 struct mapCharInt *m_TagDefinition = NULL;
 

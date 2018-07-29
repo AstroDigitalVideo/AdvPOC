@@ -138,6 +138,60 @@ void TestAdvAddImageSectionTag(CuTest *tc)
 	
 	rv = AdvAddImageSectionTag("IMAGE-BYTE-ORDER", "BIG-ENDIAN");
 	CuAssertIntEquals(tc, S_ADV_TAG_REPLACED, rv);
+	
+    rv = AdvEndFile();
+	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);		
+}
+
+void TestAdvDefineImageLayouts(CuTest *tc)
+{
+	ADVRESULT rv = AdvDefineImageLayout(0, "FULL-IMAGE-RAW", "UNCOMPRESSED", 16);
+	CuAssertIntEquals(tc, E_ADV_NOFILE, rv);
+	
+	rv = AdvNewFile("test.adv", true);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+	rv = AdvDefineImageLayout(0, "FULL-IMAGE-RAW", "UNCOMPRESSED", 16);
+	CuAssertIntEquals(tc, E_ADV_IMAGE_SECTION_UNDEFINED, rv);
+	
+	rv = AdvDefineImageSection(800, 600, 16);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+	rv = AdvDefineImageLayout(0, NULL, NULL, 16);
+	CuAssertIntEquals(tc, E_ADV_INVALID_IMAGE_LAYOUT_TYPE, rv);
+	
+	rv = AdvDefineImageLayout(0, "FULL-IMAGE-RAW", "UNCOMPRESSED", 16);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+	rv = AdvDefineImageLayout(0, "BLAH", "BLAH", 32);
+	CuAssertIntEquals(tc, E_ADV_IMAGE_LAYOUT_ALREADY_DEFINED, rv);	
+	
+	rv = AdvDefineImageLayout(1, "BLAH", "UNCOMPRESSED", 32);
+	CuAssertIntEquals(tc, E_ADV_INVALID_IMAGE_LAYOUT_TYPE, rv);		
+
+	rv = AdvDefineImageLayout(1, "FULL-IMAGE-RAW", "BLAH", 32);
+	CuAssertIntEquals(tc, E_ADV_INVALID_IMAGE_LAYOUT_COMPRESSION, rv);
+	
+	rv = AdvDefineImageLayout(1, "FULL-IMAGE-RAW", "UNCOMPRESSED", 0);
+	CuAssertIntEquals(tc, E_ADV_INVALID_IMAGE_LAYOUT_BPP, rv);
+
+	rv = AdvDefineImageLayout(1, "FULL-IMAGE-RAW", "UNCOMPRESSED", 64);
+	CuAssertIntEquals(tc, E_ADV_INVALID_IMAGE_LAYOUT_BPP, rv);
+
+	rv = AdvDefineImageLayout(1, "FULL-IMAGE-RAW", "LAGARITH16", 16);
+	CuAssertIntEquals(tc, S_OK, rv);
+
+	rv = AdvDefineImageLayout(2, "FULL-IMAGE-RAW", "QUICKLZ", 8);
+	CuAssertIntEquals(tc, S_OK, rv);
+
+	rv = AdvDefineImageLayout(3, "12BIT-IMAGE-PACKED", "UNCOMPRESSED", 8);
+	CuAssertIntEquals(tc, S_OK, rv);
+
+	rv = AdvDefineImageLayout(4, "8BIT-COLOR-IMAGE", "UNCOMPRESSED", 32);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+    rv = AdvEndFile();
+	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);			
 }
 
 void TestAdvFile(CuTest *tc)
@@ -188,5 +242,6 @@ CuSuite* TestBasicAdvGetSuite() {
 	SUITE_ADD_TEST(suite, TestAdvAddCalibrationStreamTag);
 	SUITE_ADD_TEST(suite, TestAdvDefineStatusSectionTag);
 	SUITE_ADD_TEST(suite, TestAdvAddImageSectionTag);
+	SUITE_ADD_TEST(suite, TestAdvDefineImageLayouts);
 	return suite;
 }

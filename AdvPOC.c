@@ -56,6 +56,8 @@ ADVRESULT AdvNewFile(const char* fileName, bool overwriteExisting)
 		m_FrameStarted = false;
 		m_LastSystemSpecificFileError = 0;
 		m_FileDefinitionMode = true;
+		m_ImageSectionSet = false;
+		m_StatusSectionSet = false;
 	}
 
 	return S_OK;
@@ -178,8 +180,49 @@ ADVRESULT AdvDefineImageSection(unsigned short width, unsigned short height, uns
 
 ADVRESULT AdvDefineImageLayout(unsigned char layoutId, const char* layoutType, const char* compression, unsigned char layoutBpp)
 {
-	// Int -> Struct
-	return E_NOTIMPL;
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+		
+	if (!m_ImageSectionSet)
+		return E_ADV_IMAGE_SECTION_UNDEFINED;
+		
+	if (!m_SectionDefinitionMode)
+		return E_ADV_CHANGE_NOT_ALLOWED_RIGHT_NOW;
+
+    struct mapIntImageLayout *s;
+	int key = layoutId;
+    HASH_FIND_INT(m_ImageLayouts, &key, s);
+	
+	if (s)
+		return E_ADV_IMAGE_LAYOUT_ALREADY_DEFINED;
+
+	if (layoutType == NULL)
+		return E_ADV_INVALID_IMAGE_LAYOUT_TYPE;
+
+	if (strcmp(layoutType, "FULL-IMAGE-RAW") != 0 &&
+		strcmp(layoutType, "12BIT-IMAGE-PACKED") != 0 &&
+		strcmp(layoutType, "8BIT-COLOR-IMAGE") != 0)
+	{
+		return E_ADV_INVALID_IMAGE_LAYOUT_TYPE;
+	}
+
+	if (compression == NULL)
+		return E_ADV_INVALID_IMAGE_LAYOUT_COMPRESSION;
+
+	if (strcmp(compression, "UNCOMPRESSED") != 0 &&
+		strcmp(compression, "LAGARITH16") != 0 &&
+		strcmp(compression, "QUICKLZ") != 0)
+	{
+		return E_ADV_INVALID_IMAGE_LAYOUT_COMPRESSION;
+	}
+
+	if (layoutBpp == 0 || layoutBpp > 32)
+		return E_ADV_INVALID_IMAGE_LAYOUT_BPP;
+
+    ADVRESULT rv = S_OK;
+    MAP_ADD_INT_IMG_LAYOUT(key, layoutType, compression, layoutBpp, m_ImageLayouts, rv);
+	
+	return rv;
 }
 
 ADVRESULT AdvDefineStatusSection(int64_t utcTimestampAccuracyInNanoseconds)
@@ -194,6 +237,7 @@ ADVRESULT AdvDefineStatusSection(int64_t utcTimestampAccuracyInNanoseconds)
 
 	m_FrameStatusLoaded = false;
 	m_SectionDefinitionMode = true;
+	m_StatusSectionSet = true;
 	
 	return S_OK;
 }
@@ -430,7 +474,7 @@ ADVRESULT AdvEndFile()
 	MAP_FREE_STR_STR(m_CalibrationStreamTags);
 	
 	// Status section
-    if (m_TagDefinitionNames) utarray_free(m_TagDefinitionNames);
+    if (m_StatusSectionSet) utarray_free(m_TagDefinitionNames);
 	MAP_FREE_STR_INT(m_TagDefinition);
 	MAP_FREE_INT_STR(m_FrameStatusTags);
 	MAP_FREE_INT_INT(m_FrameStatusTagsUInt8);
@@ -438,6 +482,9 @@ ADVRESULT AdvEndFile()
 	MAP_FREE_INT_INT(m_FrameStatusTagsUInt32);
 	MAP_FREE_INT_INT64(m_FrameStatusTagsUInt64);
 	MAP_FREE_INT_FLOAT(m_FrameStatusTagsReal);
+	
+	// Image section
+	MAP_FREE_INT_IMG_LAYOUT(m_ImageLayouts);
 	
 	g_FileStarted = false;
 	return rv;

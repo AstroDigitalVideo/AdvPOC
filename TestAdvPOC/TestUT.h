@@ -14,8 +14,17 @@ struct mapCharChar {
     UT_hash_handle hh;  /* makes this structure hashable */
 };
 
+struct mapIntImageLayout {
+    int key;
+    char layoutType[265];
+	char compression[265];
+	unsigned char layoutBpp;
+    UT_hash_handle hh;
+};
+
 struct my_struct *users = NULL;
 struct mapCharChar *tags = NULL;
+struct mapIntImageLayout *layouts = NULL;
 
 void add_user(int user_id, char *name) {
     struct my_struct *s;
@@ -46,6 +55,20 @@ void add_update_tag(char *key, char *value) {
       HASH_ADD_STR( tags, key, s );  /* id: name of key field */
     }
     strcpy(s->value, value);
+}
+
+void add_update_image_layout(int key, char *layoutType, char *compression, unsigned char layoutBpp) {
+    struct mapIntImageLayout *s;
+    HASH_FIND_INT(layouts, &key, s);  /* id already in the hash? */
+    if (s==NULL) {
+      s = (struct mapIntImageLayout *)malloc(sizeof *s);
+      s->key = key;
+
+      HASH_ADD_INT( layouts, key, s );  /* id: name of key field */
+    }
+    strcpy(s->layoutType, layoutType);
+    strcpy(s->compression, compression);
+	s->layoutBpp = layoutBpp;
 }
 
 void TestIntCharMap(CuTest *tc)
@@ -118,10 +141,36 @@ void TestArray(CuTest *tc)
 	utarray_free(strs);
 }
 
+void TestIntImageLayoutMap(CuTest *tc)
+{
+	add_update_image_layout(1, "type1", "compress2", 16);
+    
+    struct mapIntImageLayout *layout;
+
+    int layout_id = 1;
+    HASH_FIND_INT( layouts, &layout_id, layout);
+
+    CuAssertStrEquals(tc, "type1", layout->layoutType);
+	CuAssertStrEquals(tc, "compress2", layout->compression);
+	CuAssertIntEquals(tc, 16, layout->layoutBpp);
+
+    add_update_image_layout(1, "type2", "compress5", 32);
+    CuAssertStrEquals(tc, "type2", layout->layoutType);
+	CuAssertStrEquals(tc, "compress5", layout->compression);
+	CuAssertIntEquals(tc, 32, layout->layoutBpp);
+	
+    HASH_DEL(layouts, layout);
+    free(layout);
+    
+    HASH_FIND_INT( layouts, &layout_id, layout);
+    CuAssertPtrEquals(tc, NULL, layout);
+}
+
 CuSuite* TestUTGetSuite() {
     CuSuite* suite = CuSuiteNew();
     SUITE_ADD_TEST(suite, TestArray);
     SUITE_ADD_TEST(suite, TestCharCharMap);
     SUITE_ADD_TEST(suite, TestIntCharMap);
+	SUITE_ADD_TEST(suite, TestIntImageLayoutMap);
     return suite;
 }
