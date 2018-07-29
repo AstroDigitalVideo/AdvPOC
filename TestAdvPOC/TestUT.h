@@ -132,6 +132,15 @@ void TestArray(CuTest *tc)
 	s = "world"; utarray_push_back(strs, &s);
 	p = NULL;
 
+    int len = utarray_len(strs);
+	CuAssertIntEquals(tc, 2, len);
+	
+	char** val = (char**)utarray_eltptr(strs, 0);
+	CuAssertStrEquals(tc, "hello", *val);
+	
+	val = (char**)utarray_eltptr(strs, 1);
+	CuAssertStrEquals(tc, "world", *val);
+
 	p=(char**)utarray_next(strs,p);
     CuAssertStrEquals(tc, "hello", *p);
 

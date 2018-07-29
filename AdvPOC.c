@@ -344,7 +344,20 @@ ADVRESULT AdvAddFileTag(const char* tagName, const char* tagValue)
 
 ADVRESULT AdvAddUserTag(const char* tagName, const char* tagValue)
 {
-	return E_NOTIMPL;
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+
+	if (!m_FileDefinitionMode)
+		return E_ADV_CHANGE_NOT_ALLOWED_RIGHT_NOW;
+
+    if (NULL == tagValue)
+    {
+        return E_ADV_FILE_HASH_KEY_NULL;
+	}
+
+	ADVRESULT rv = S_OK;
+	MAP_ADD_STR_STR(tagName, tagValue, m_UserMetadataTags, rv);
+	return rv;
 }
 
 ADVRESULT AdvAddImageSectionTag(const char* tagName, const char* tagValue)
@@ -510,6 +523,26 @@ ADVRESULT AdvFrameAddImageBytes(unsigned char layoutId, unsigned char* pixels, u
 	return E_NOTIMPL;
 }
 
+ADVRESULT VaidateStatusTagId(unsigned int tagIndex, int expectedTagType)
+{
+	if (tagIndex < 0 || tagIndex >= utarray_len(m_TagDefinitionNames))
+		return E_ADV_INVALID_STATUS_TAG_ID;
+
+	char** tagName = (char**)utarray_eltptr(m_TagDefinitionNames, tagIndex);
+	
+	struct mapCharInt *tag;
+
+    HASH_FIND_STR( m_TagDefinition, *tagName, tag);
+	
+	if (!tag)
+		return E_ADV_INVALID_STATUS_TAG_ID;
+	
+	if (tag->value != expectedTagType)
+		return E_ADV_INVALID_STATUS_TAG_TYPE;
+
+	return S_OK;
+}
+
 ADVRESULT AdvFrameAddStatusTagUTF8String(unsigned int tagIndex, const char* tagValue)
 {
 	return E_NOTIMPL;
@@ -522,7 +555,27 @@ ADVRESULT AdvFrameAddStatusTagUInt8(unsigned int tagIndex, unsigned char tagValu
 
 ADVRESULT AdvFrameAddStatusTag16(unsigned int tagIndex, unsigned short tagValue)
 {
-	return E_NOTIMPL;
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+
+	if (!m_StatusSectionSet)
+		return E_ADV_STATUS_SECTION_UNDEFINED;
+	
+	struct mapIntInt *tagVal;
+	HASH_FIND_INT(m_FrameStatusTagsUInt16, &tagIndex, tagVal);	
+	
+	if (tagVal)
+		return E_ADV_STATUS_ENTRY_ALREADY_ADDED;
+	
+	ADVRESULT rv = VaidateStatusTagId(tagIndex, Int16);
+	if (rv == S_OK)
+	{
+		int key = tagIndex;
+		tagVal = (struct mapIntInt *)malloc(sizeof *tagVal);
+		tagVal->key = key;
+		HASH_ADD_INT(m_FrameStatusTagsUInt16, key, tagVal);
+	}
+	return rv;
 }
 
 ADVRESULT AdvFrameAddStatusTagReal(unsigned int tagIndex, float tagValue)

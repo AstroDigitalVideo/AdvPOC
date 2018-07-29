@@ -31,6 +31,36 @@ void TestAdvAddFileTag(CuTest *tc)
 	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);
 }
 
+void TestAdvAddUserTag(CuTest *tc)
+{
+    ADVRESULT rv = AdvAddUserTag("MY-INFO", "ABC");
+    CuAssertIntEquals(tc, E_ADV_NOFILE, rv);
+    
+    rv = AdvNewFile("test.adv", true);
+    CuAssertIntEquals(tc, S_OK, rv);
+    
+    rv = AdvAddUserTag("MY-INFO", "ABC");
+    CuAssertIntEquals(tc, S_OK, rv);
+    
+    rv = AdvAddUserTag("MY-INFO2", NULL);
+    CuAssertIntEquals(tc, E_ADV_FILE_HASH_KEY_NULL, rv);
+    
+    rv = AdvAddUserTag("12345678901234567890123456789012345678901234567890123456789012345", "Test");
+    CuAssertIntEquals(tc, E_ADV_FILE_HASH_KEY_TOO_LONG, rv);
+
+    rv = AdvAddUserTag("ADV-VERSION", "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567");
+    CuAssertIntEquals(tc, E_ADV_FILE_HASH_VALUE_TOO_LONG, rv);
+
+    rv = AdvAddUserTag("MY-INFO2", "1");
+    CuAssertIntEquals(tc, S_OK, rv);
+    
+    rv = AdvAddUserTag("MY-INFO2", "2");
+    CuAssertIntEquals(tc, S_ADV_TAG_REPLACED, rv);
+
+    rv = AdvEndFile();
+	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);
+}
+
 void TestAdvAddMainStreamTag(CuTest *tc)
 {
     ADVRESULT rv = AdvAddMainStreamTag("Name1", "Христо");
@@ -194,6 +224,45 @@ void TestAdvDefineImageLayouts(CuTest *tc)
 	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);			
 }
 
+void TestAdvFrameAddStatusTag16(CuTest *tc)
+{
+	ADVRESULT rv = AdvFrameAddStatusTag16(0, 12);
+	CuAssertIntEquals(tc, E_ADV_NOFILE, rv);
+	
+	rv = AdvNewFile("test.adv", true);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+	rv = AdvFrameAddStatusTag16(0, 12);
+	CuAssertIntEquals(tc, E_ADV_STATUS_SECTION_UNDEFINED, rv);	
+	
+	rv = AdvDefineStatusSection(1 * MILLI_TO_NANO);
+	CuAssertIntEquals(tc, S_OK, rv);
+
+	rv = AdvFrameAddStatusTag16(0, 12);
+	CuAssertIntEquals(tc, E_ADV_INVALID_STATUS_TAG_ID, rv);	
+		
+	unsigned int tagId;
+	rv = AdvDefineStatusSectionTag("Tag1", Int32, &tagId);
+    CuAssertIntEquals(tc, S_OK, rv);
+	CuAssertIntEquals(tc, 0, tagId);
+	
+	rv = AdvFrameAddStatusTag16(0, 12);
+	CuAssertIntEquals(tc, E_ADV_INVALID_STATUS_TAG_TYPE, rv);	
+	
+	rv = AdvDefineStatusSectionTag("Tag2", Int16, &tagId);
+    CuAssertIntEquals(tc, S_OK, rv);
+	CuAssertIntEquals(tc, 1, tagId);
+	
+	rv = AdvFrameAddStatusTag16(1, 12);
+	CuAssertIntEquals(tc, S_OK, rv);	
+	
+	rv = AdvFrameAddStatusTag16(1, 13);
+	CuAssertIntEquals(tc, E_ADV_STATUS_ENTRY_ALREADY_ADDED, rv);	
+	
+    rv = AdvEndFile();
+	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);		
+}
+
 void TestAdvFile(CuTest *tc)
 {
 	AdvNewFile("test.adv", true);
@@ -238,10 +307,12 @@ void TestAdvFile(CuTest *tc)
 CuSuite* TestBasicAdvGetSuite() {
 	CuSuite* suite = CuSuiteNew();
 	SUITE_ADD_TEST(suite, TestAdvAddFileTag);
+	SUITE_ADD_TEST(suite, TestAdvAddUserTag);
 	SUITE_ADD_TEST(suite, TestAdvAddMainStreamTag);
 	SUITE_ADD_TEST(suite, TestAdvAddCalibrationStreamTag);
 	SUITE_ADD_TEST(suite, TestAdvDefineStatusSectionTag);
 	SUITE_ADD_TEST(suite, TestAdvAddImageSectionTag);
 	SUITE_ADD_TEST(suite, TestAdvDefineImageLayouts);
+	SUITE_ADD_TEST(suite, TestAdvFrameAddStatusTag16);
 	return suite;
 }
