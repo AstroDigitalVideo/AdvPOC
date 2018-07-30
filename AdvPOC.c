@@ -545,12 +545,52 @@ ADVRESULT VaidateStatusTagId(unsigned int tagIndex, int expectedTagType)
 
 ADVRESULT AdvFrameAddStatusTagUTF8String(unsigned int tagIndex, const char* tagValue)
 {
-	return E_NOTIMPL;
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+
+	if (!m_StatusSectionSet)
+		return E_ADV_STATUS_SECTION_UNDEFINED;
+	
+	struct mapIntChar *tagVal;
+	HASH_FIND_INT(m_FrameStatusTags, &tagIndex, tagVal);	
+	
+	if (tagVal)
+		return E_ADV_STATUS_ENTRY_ALREADY_ADDED;
+	
+	ADVRESULT rv = VaidateStatusTagId(tagIndex, UTF8String);
+	if (rv == S_OK)
+	{
+		int key = tagIndex;
+		tagVal = (struct mapIntChar *)malloc(sizeof *tagVal);
+		tagVal->key = key;
+		HASH_ADD_INT(m_FrameStatusTags, key, tagVal);
+	}
+	return rv;
 }
 
 ADVRESULT AdvFrameAddStatusTagUInt8(unsigned int tagIndex, unsigned char tagValue)
 {
-	return E_NOTIMPL;
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+
+	if (!m_StatusSectionSet)
+		return E_ADV_STATUS_SECTION_UNDEFINED;
+	
+	struct mapIntInt *tagVal;
+	HASH_FIND_INT(m_FrameStatusTagsUInt8, &tagIndex, tagVal);	
+	
+	if (tagVal)
+		return E_ADV_STATUS_ENTRY_ALREADY_ADDED;
+	
+	ADVRESULT rv = VaidateStatusTagId(tagIndex, Int8);
+	if (rv == S_OK)
+	{
+		int key = tagIndex;
+		tagVal = (struct mapIntInt *)malloc(sizeof *tagVal);
+		tagVal->key = key;
+		HASH_ADD_INT(m_FrameStatusTagsUInt8, key, tagVal);
+	}
+	return rv;		
 }
 
 ADVRESULT AdvFrameAddStatusTag16(unsigned int tagIndex, unsigned short tagValue)
@@ -575,23 +615,82 @@ ADVRESULT AdvFrameAddStatusTag16(unsigned int tagIndex, unsigned short tagValue)
 		tagVal->key = key;
 		HASH_ADD_INT(m_FrameStatusTagsUInt16, key, tagVal);
 	}
-	return rv;
+	return rv;	
 }
 
 ADVRESULT AdvFrameAddStatusTagReal(unsigned int tagIndex, float tagValue)
 {
-	return E_NOTIMPL;
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+
+	if (!m_StatusSectionSet)
+		return E_ADV_STATUS_SECTION_UNDEFINED;
 	
+	struct mapIntFloat *tagVal;
+	HASH_FIND_INT(m_FrameStatusTagsReal, &tagIndex, tagVal);	
+	
+	if (tagVal)
+		return E_ADV_STATUS_ENTRY_ALREADY_ADDED;
+	
+	ADVRESULT rv = VaidateStatusTagId(tagIndex, Real4);
+	if (rv == S_OK)
+	{
+		int key = tagIndex;
+		tagVal = (struct mapIntFloat *)malloc(sizeof *tagVal);
+		tagVal->key = key;
+		HASH_ADD_INT(m_FrameStatusTagsReal, key, tagVal);
+	}
+	return rv;	
 }
 
 ADVRESULT AdvFrameAddStatusTag32(unsigned int tagIndex, unsigned int tagValue)
 {
-	return E_NOTIMPL;
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+
+	if (!m_StatusSectionSet)
+		return E_ADV_STATUS_SECTION_UNDEFINED;
+	
+	struct mapIntInt *tagVal;
+	HASH_FIND_INT(m_FrameStatusTagsUInt32, &tagIndex, tagVal);	
+	
+	if (tagVal)
+		return E_ADV_STATUS_ENTRY_ALREADY_ADDED;
+	
+	ADVRESULT rv = VaidateStatusTagId(tagIndex, Int32);
+	if (rv == S_OK)
+	{
+		int key = tagIndex;
+		tagVal = (struct mapIntInt *)malloc(sizeof *tagVal);
+		tagVal->key = key;
+		HASH_ADD_INT(m_FrameStatusTagsUInt32, key, tagVal);
+	}
+	return rv;
 }
 
 ADVRESULT AdvFrameAddStatusTag64(unsigned int tagIndex, int64_t tagValue)
 {
-	return E_NOTIMPL;	
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+
+	if (!m_StatusSectionSet)
+		return E_ADV_STATUS_SECTION_UNDEFINED;
+	
+	struct mapIntInt64 *tagVal;
+	HASH_FIND_INT(m_FrameStatusTagsUInt64, &tagIndex, tagVal);	
+	
+	if (tagVal)
+		return E_ADV_STATUS_ENTRY_ALREADY_ADDED;
+	
+	ADVRESULT rv = VaidateStatusTagId(tagIndex, Long64);
+	if (rv == S_OK)
+	{
+		int key = tagIndex;
+		tagVal = (struct mapIntInt64 *)malloc(sizeof *tagVal);
+		tagVal->key = key;
+		HASH_ADD_INT(m_FrameStatusTagsUInt64, key, tagVal);
+	}
+	return rv;
 }
 
 ADVRESULT AdvEndFrame()

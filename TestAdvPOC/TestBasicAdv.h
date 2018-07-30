@@ -263,6 +263,201 @@ void TestAdvFrameAddStatusTag16(CuTest *tc)
 	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);		
 }
 
+void TestAdvFrameAddStatusTag8(CuTest *tc)
+{
+	ADVRESULT rv = AdvFrameAddStatusTagUInt8(0, 12);
+	CuAssertIntEquals(tc, E_ADV_NOFILE, rv);
+	
+	rv = AdvNewFile("test.adv", true);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+	rv = AdvFrameAddStatusTagUInt8(0, 12);
+	CuAssertIntEquals(tc, E_ADV_STATUS_SECTION_UNDEFINED, rv);	
+	
+	rv = AdvDefineStatusSection(1 * MILLI_TO_NANO);
+	CuAssertIntEquals(tc, S_OK, rv);
+
+	rv = AdvFrameAddStatusTagUInt8(0, 12);
+	CuAssertIntEquals(tc, E_ADV_INVALID_STATUS_TAG_ID, rv);	
+		
+	unsigned int tagId;
+	rv = AdvDefineStatusSectionTag("Tag1", Int32, &tagId);
+    CuAssertIntEquals(tc, S_OK, rv);
+	CuAssertIntEquals(tc, 0, tagId);
+	
+	rv = AdvFrameAddStatusTagUInt8(0, 12);
+	CuAssertIntEquals(tc, E_ADV_INVALID_STATUS_TAG_TYPE, rv);	
+	
+	rv = AdvDefineStatusSectionTag("Tag2", Int8, &tagId);
+    CuAssertIntEquals(tc, S_OK, rv);
+	CuAssertIntEquals(tc, 1, tagId);
+	
+	rv = AdvFrameAddStatusTagUInt8(1, 12);
+	CuAssertIntEquals(tc, S_OK, rv);	
+	
+	rv = AdvFrameAddStatusTagUInt8(1, 13);
+	CuAssertIntEquals(tc, E_ADV_STATUS_ENTRY_ALREADY_ADDED, rv);	
+	
+    rv = AdvEndFile();
+	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);		
+}
+
+void TestAdvFrameAddStatusTag32(CuTest *tc)
+{
+	ADVRESULT rv = AdvFrameAddStatusTag32(0, 12);
+	CuAssertIntEquals(tc, E_ADV_NOFILE, rv);
+	
+	rv = AdvNewFile("test.adv", true);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+	rv = AdvFrameAddStatusTag32(0, 12);
+	CuAssertIntEquals(tc, E_ADV_STATUS_SECTION_UNDEFINED, rv);	
+	
+	rv = AdvDefineStatusSection(1 * MILLI_TO_NANO);
+	CuAssertIntEquals(tc, S_OK, rv);
+
+	rv = AdvFrameAddStatusTag32(0, 12);
+	CuAssertIntEquals(tc, E_ADV_INVALID_STATUS_TAG_ID, rv);	
+		
+	unsigned int tagId;
+	rv = AdvDefineStatusSectionTag("Tag1", Int16, &tagId);
+    CuAssertIntEquals(tc, S_OK, rv);
+	CuAssertIntEquals(tc, 0, tagId);
+	
+	rv = AdvFrameAddStatusTag32(0, 12);
+	CuAssertIntEquals(tc, E_ADV_INVALID_STATUS_TAG_TYPE, rv);	
+	
+	rv = AdvDefineStatusSectionTag("Tag2", Int32, &tagId);
+    CuAssertIntEquals(tc, S_OK, rv);
+	CuAssertIntEquals(tc, 1, tagId);
+	
+	rv = AdvFrameAddStatusTag32(1, 12);
+	CuAssertIntEquals(tc, S_OK, rv);	
+	
+	rv = AdvFrameAddStatusTag32(1, 13);
+	CuAssertIntEquals(tc, E_ADV_STATUS_ENTRY_ALREADY_ADDED, rv);	
+	
+    rv = AdvEndFile();
+	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);		
+}
+
+void TestAdvFrameAddStatusTag64(CuTest *tc)
+{
+	ADVRESULT rv = AdvFrameAddStatusTag64(0, 0x12345678ABCD);
+	CuAssertIntEquals(tc, E_ADV_NOFILE, rv);
+	
+	rv = AdvNewFile("test.adv", true);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+	rv = AdvFrameAddStatusTag64(0, 0x12345678ABCD);
+	CuAssertIntEquals(tc, E_ADV_STATUS_SECTION_UNDEFINED, rv);	
+	
+	rv = AdvDefineStatusSection(1 * MILLI_TO_NANO);
+	CuAssertIntEquals(tc, S_OK, rv);
+
+	rv = AdvFrameAddStatusTag64(0, 0x12345678ABCD);
+	CuAssertIntEquals(tc, E_ADV_INVALID_STATUS_TAG_ID, rv);	
+		
+	unsigned int tagId;
+	rv = AdvDefineStatusSectionTag("Tag1", Int32, &tagId);
+    CuAssertIntEquals(tc, S_OK, rv);
+	CuAssertIntEquals(tc, 0, tagId);
+	
+	rv = AdvFrameAddStatusTag64(0, 0x12345678ABCD);
+	CuAssertIntEquals(tc, E_ADV_INVALID_STATUS_TAG_TYPE, rv);	
+	
+	rv = AdvDefineStatusSectionTag("Tag2", Long64, &tagId);
+    CuAssertIntEquals(tc, S_OK, rv);
+	CuAssertIntEquals(tc, 1, tagId);
+	
+	rv = AdvFrameAddStatusTag64(1, 0x12345678ABCD);
+	CuAssertIntEquals(tc, S_OK, rv);	
+	
+	rv = AdvFrameAddStatusTag64(1, 0x12345678ABFF);
+	CuAssertIntEquals(tc, E_ADV_STATUS_ENTRY_ALREADY_ADDED, rv);	
+	
+    rv = AdvEndFile();
+	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);		
+}
+
+void TestAdvFrameAddStatusTagReal(CuTest *tc)
+{
+	ADVRESULT rv = AdvFrameAddStatusTagReal(0, -12.346);
+	CuAssertIntEquals(tc, E_ADV_NOFILE, rv);
+	
+	rv = AdvNewFile("test.adv", true);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+	rv = AdvFrameAddStatusTagReal(0, -12.346);
+	CuAssertIntEquals(tc, E_ADV_STATUS_SECTION_UNDEFINED, rv);	
+	
+	rv = AdvDefineStatusSection(1 * MILLI_TO_NANO);
+	CuAssertIntEquals(tc, S_OK, rv);
+
+	rv = AdvFrameAddStatusTagReal(0, -12.346);
+	CuAssertIntEquals(tc, E_ADV_INVALID_STATUS_TAG_ID, rv);	
+		
+	unsigned int tagId;
+	rv = AdvDefineStatusSectionTag("Tag1", Int32, &tagId);
+    CuAssertIntEquals(tc, S_OK, rv);
+	CuAssertIntEquals(tc, 0, tagId);
+	
+	rv = AdvFrameAddStatusTagReal(0, -12.346);
+	CuAssertIntEquals(tc, E_ADV_INVALID_STATUS_TAG_TYPE, rv);	
+	
+	rv = AdvDefineStatusSectionTag("Tag2", Real4, &tagId);
+    CuAssertIntEquals(tc, S_OK, rv);
+	CuAssertIntEquals(tc, 1, tagId);
+	
+	rv = AdvFrameAddStatusTagReal(1, -12.346);
+	CuAssertIntEquals(tc, S_OK, rv);	
+	
+	rv = AdvFrameAddStatusTagReal(1, 104523.12);
+	CuAssertIntEquals(tc, E_ADV_STATUS_ENTRY_ALREADY_ADDED, rv);	
+	
+    rv = AdvEndFile();
+	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);		
+}
+
+void TestAdvFrameAddStatusTagUTF8String(CuTest *tc)
+{
+	ADVRESULT rv = AdvFrameAddStatusTagUTF8String(0, "AlaBala");
+	CuAssertIntEquals(tc, E_ADV_NOFILE, rv);
+	
+	rv = AdvNewFile("test.adv", true);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+	rv = AdvFrameAddStatusTagUTF8String(0, "AlaBala");
+	CuAssertIntEquals(tc, E_ADV_STATUS_SECTION_UNDEFINED, rv);	
+	
+	rv = AdvDefineStatusSection(1 * MILLI_TO_NANO);
+	CuAssertIntEquals(tc, S_OK, rv);
+
+	rv = AdvFrameAddStatusTagUTF8String(0, "AlaBala");
+	CuAssertIntEquals(tc, E_ADV_INVALID_STATUS_TAG_ID, rv);	
+		
+	unsigned int tagId;
+	rv = AdvDefineStatusSectionTag("Tag1", Int32, &tagId);
+    CuAssertIntEquals(tc, S_OK, rv);
+	CuAssertIntEquals(tc, 0, tagId);
+	
+	rv = AdvFrameAddStatusTagUTF8String(0, "AlaBala");
+	CuAssertIntEquals(tc, E_ADV_INVALID_STATUS_TAG_TYPE, rv);	
+	
+	rv = AdvDefineStatusSectionTag("Tag2", UTF8String, &tagId);
+    CuAssertIntEquals(tc, S_OK, rv);
+	CuAssertIntEquals(tc, 1, tagId);
+	
+	rv = AdvFrameAddStatusTagUTF8String(1, "AlaBala");
+	CuAssertIntEquals(tc, S_OK, rv);	
+	
+	rv = AdvFrameAddStatusTagUTF8String(1, "Gérard");
+	CuAssertIntEquals(tc, E_ADV_STATUS_ENTRY_ALREADY_ADDED, rv);	
+	
+    rv = AdvEndFile();
+	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);		
+}
+
 void TestAdvFile(CuTest *tc)
 {
 	AdvNewFile("test.adv", true);
@@ -300,8 +495,12 @@ void TestAdvFile(CuTest *tc)
 	AdvDefineStatusSectionTag("Tag1", Int32, &tagId);
 	AdvDefineStatusSectionTag("Tag2", Real4, &tagId);
 	AdvDefineStatusSectionTag("Tag2", UTF8String, &tagId);
+	
+	// TODO: Test overflow in and UInt8, Int16 status values, making sure they are saved correctly
 
 	AdvEndFile();
+	
+	// TODO: Assert that everything has been cleared up 
 }
 
 CuSuite* TestBasicAdvGetSuite() {
@@ -313,6 +512,11 @@ CuSuite* TestBasicAdvGetSuite() {
 	SUITE_ADD_TEST(suite, TestAdvDefineStatusSectionTag);
 	SUITE_ADD_TEST(suite, TestAdvAddImageSectionTag);
 	SUITE_ADD_TEST(suite, TestAdvDefineImageLayouts);
+	SUITE_ADD_TEST(suite, TestAdvFrameAddStatusTag8);
 	SUITE_ADD_TEST(suite, TestAdvFrameAddStatusTag16);
+	SUITE_ADD_TEST(suite, TestAdvFrameAddStatusTag32);
+	SUITE_ADD_TEST(suite, TestAdvFrameAddStatusTag64);
+	SUITE_ADD_TEST(suite, TestAdvFrameAddStatusTagReal);
+	SUITE_ADD_TEST(suite, TestAdvFrameAddStatusTagUTF8String);
 	return suite;
 }
