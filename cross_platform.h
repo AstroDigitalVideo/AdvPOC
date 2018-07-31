@@ -177,7 +177,7 @@ void advfread(void* pData, size_t size, size_t count, FILE* file)
 	fread(pData, size, count, file);
 }
 
-void advfgetpos64(FILE* file, __int64* pos)
+void advfgetpos64(FILE* file, int64_t* pos)
 {	
 #ifdef MSVC
 	*pos = _ftelli64(file);
@@ -190,7 +190,7 @@ void advfgetpos64(FILE* file, __int64* pos)
 #endif
 }
 
-int advfsetposorg64(FILE* file, const __int64* pos, int origin)
+int advfsetposorg64(FILE* file, const int64_t* pos, int origin)
 {
 #ifdef MSVC
 	int rv = _fseeki64(file, *pos, origin);
@@ -207,7 +207,7 @@ int advfsetposorg64(FILE* file, const __int64* pos, int origin)
 	return rv;
 }
 
-int advfsetpos64(FILE* file, const __int64* pos)
+int advfsetpos64(FILE* file, const int64_t* pos)
 {	
 #ifdef MSVC
 	int rv = _fseeki64(file, *pos, SEEK_SET);
@@ -224,7 +224,7 @@ int advfsetpos64(FILE* file, const __int64* pos)
 	return rv;
 }
 
-int advfseek(FILE* file, __int64 off, int whence)
+int advfseek(FILE* file, int64_t off, int whence)
 {
 	int rv = advfsetposorg64(file, &off, whence);
 	return rv;
@@ -236,9 +236,18 @@ int advfflush(FILE* file)
 	return rv;
 }
 
-__int64 advgetclockresolution()
+void WriteUTF8String(FILE* pFile, const char* str)
 {
-	__int64 rv = 0;
+	unsigned short len;
+	len = strlen(str);
+	
+	advfwrite(&len, 2, 1, pFile);
+	advfwrite(&str[0], len, 1, pFile);
+}
+
+int64_t advgetclockresolution()
+{
+	int64_t rv = 0;
 #ifdef MSVC
 	LARGE_INTEGER li;
 	QueryPerformanceFrequency(&li);
@@ -257,9 +266,9 @@ __int64 advgetclockresolution()
 	return rv;
 }
 
-__int64 advgetclockticks()
+int64_t advgetclockticks()
 {
-	__int64 rv = 0;
+	int64_t rv = 0;
 #ifdef MSVC
 	LARGE_INTEGER li;
 	QueryPerformanceCounter(&li);

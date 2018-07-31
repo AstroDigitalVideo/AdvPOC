@@ -8,7 +8,7 @@
 #include "cross_platform.h"
 
 // https://troydhanson.github.io/uthash/
-#include "uthash.h" 
+#include "uthash.h"
 #include "utarray.h"
 
 #define CORE_VERSION "c2.0g"
@@ -17,54 +17,50 @@ extern char* g_CurrentAdvFile;
 extern FILE* g_AdvFile;
 extern bool g_FileStarted;
 
-enum GetByteOperation
-{
-	None = 0,
-	ConvertTo12BitPacked = 1,
-	ConvertTo8BitBytesLooseHighByte = 2
+enum GetByteOperation {
+    None = 0,
+    ConvertTo12BitPacked = 1,
+    ConvertTo8BitBytesLooseHighByte = 2
 };
 
-enum Adv2TagType
-{
-	Int8 = 0,
-	Int16 = 1,
-	Int32 = 2,
-	Long64 = 3,
-	Real4 = 4,
-	UTF8String = 5
+enum Adv2TagType {
+    Int8 = 0,
+    Int16 = 1,
+    Int32 = 2,
+    Long64 = 3,
+    Real4 = 4,
+    UTF8String = 5
 };
 
-struct AdvFileInfo
-{
-   int Width;
-   int Height;
-   int CountMaintFrames;
-   int CountCalibrationFrames;
-   int DataBpp;
-   int MaxPixelValue;	   
-   int64_t MainClockFrequency;
-   int MainStreamAccuracy;
-   int64_t CalibrationClockFrequency;
-   int CalibrationStreamAccuracy;
-   unsigned char MainStreamTagsCount;
-   unsigned char CalibrationStreamTagsCount;
-   unsigned char SystemMetadataTagsCount;
-   unsigned char UserMetadataTagsCount;
-   int64_t UtcTimestampAccuracyInNanoseconds;
-   bool IsColourImage;
-   int ImageLayoutsCount;
-   int StatusTagsCount;
-   int ImageSectionTagsCount;
-   int ErrorStatusTagId;
+struct AdvFileInfo {
+	int Width;
+	int Height;
+	int CountMaintFrames;
+	int CountCalibrationFrames;
+	int DataBpp;
+	int MaxPixelValue;
+	int64_t MainClockFrequency;
+	int MainStreamAccuracy;
+	int64_t CalibrationClockFrequency;
+	int CalibrationStreamAccuracy;
+	unsigned char MainStreamTagsCount;
+	unsigned char CalibrationStreamTagsCount;
+	unsigned char SystemMetadataTagsCount;
+	unsigned char UserMetadataTagsCount;
+	int64_t UtcTimestampAccuracyInNanoseconds;
+	bool IsColourImage;
+	int ImageLayoutsCount;
+	int StatusTagsCount;
+	int ImageSectionTagsCount;
+	int ErrorStatusTagId;
 };
 
-struct AdvFrameInfo
-{	
+struct AdvFrameInfo {
 	unsigned int StartTicksLo;
 	unsigned int StartTicksHi;
 	unsigned int EndTicksLo;
 	unsigned int EndTicksHi;
-	
+
 	unsigned int UtcTimestampLo;
 	unsigned int UtcTimestampHi;
 	unsigned int Exposure;
@@ -91,8 +87,7 @@ struct AdvFrameInfo
 	unsigned int RawDataBlockSize;
 };
 
-struct AdvImageLayoutInfo
-{
+struct AdvImageLayoutInfo {
 	int ImageLayoutId;
 	int ImageLayoutTagsCount;
 	char ImageLayoutBpp;
@@ -101,18 +96,22 @@ struct AdvImageLayoutInfo
 	bool Is8BitColourImage;
 };
 
-struct AdvIndexEntry
-{
+struct AdvIndexEntry {
 	int64_t ElapsedTicks;
 	int64_t FrameOffset;
 	unsigned int  BytesCount;
 };
 
-enum ImageByteOrder
-{
-	BigEndian = 0,
-	LittleEndian = 1
+enum ImageByteOrder {
+    BigEndian = 0,
+    LittleEndian = 1
 };
+
+int64_t m_MainFrameCountPosition;
+int64_t m_CalibrationFrameCountPosition;
+
+unsigned int m_MainFrameNo;
+unsigned int m_CalibrationFrameNo;
 
 int64_t m_MainStreamClockFrequency;
 unsigned int m_MainStreamTickAccuracy;
@@ -133,8 +132,7 @@ bool m_FileDefinitionMode;
 int64_t m_NewFrameOffset;
 unsigned int m_FrameNo;
 
-unsigned char *m_FrameBytes;
-unsigned int m_FrameBufferIndex; 
+unsigned int m_FrameBufferIndex;
 unsigned int m_ElapedTime;
 int m_LastSystemSpecificFileError = 0;
 
@@ -142,165 +140,171 @@ int m_LastSystemSpecificFileError = 0;
 #define MAX_MAP_VALUE 256
 
 struct mapCharChar {
-    char key[MAX_MAP_KEY];
-    char value[MAX_MAP_VALUE];
-    UT_hash_handle hh;
+	char key[MAX_MAP_KEY];
+	char value[MAX_MAP_VALUE];
+	UT_hash_handle hh;
 };
 
 struct mapCharInt {
-    char key[MAX_MAP_KEY];
-    int value;
-    UT_hash_handle hh;
+	char key[MAX_MAP_KEY];
+	int value;
+	UT_hash_handle hh;
 };
 
 struct mapIntChar {
-    int key;
-    char value[MAX_MAP_VALUE];
-    UT_hash_handle hh;
+	int key;
+	char value[MAX_MAP_VALUE];
+	UT_hash_handle hh;
 };
 
 struct mapIntInt {
-    int key;
-    int value;
-    UT_hash_handle hh;
+	int key;
+	int value;
+	UT_hash_handle hh;
 };
 
 struct mapIntInt64 {
-    int key;
-    int64_t value;
-    UT_hash_handle hh;
+	int key;
+	int64_t value;
+	UT_hash_handle hh;
 };
 
 struct mapIntFloat {
-    int key;
-    float value;
-    UT_hash_handle hh;
+	int key;
+	float value;
+	UT_hash_handle hh;
 };
 
 struct mapIntImageLayout {
-    int key;
-    char layoutType[MAX_MAP_VALUE];
+	int key;
+	char layoutType[MAX_MAP_VALUE];
 	char compression[MAX_MAP_VALUE];
 	unsigned char layoutBpp;
-    UT_hash_handle hh;
+	UT_hash_handle hh;
+};
+
+struct indexEntry {
+	int64_t ElapsedTicks;
+	int64_t FrameOffset;
+	unsigned int  BytesCount;
 };
 
 #define MAP_ADD_STR_STR(pair_key,pair_value,dict,rv)                    \
-do {                                                                    \
-	if (strlen(pair_key) > MAX_MAP_KEY)                                 \
-	{                                                                   \
-	    rv = E_ADV_FILE_HASH_KEY_TOO_LONG;                              \
-	}                                                                   \
-	else if (strlen(pair_value) > MAX_MAP_VALUE)                        \
-    {                                                                   \
-	    rv = E_ADV_FILE_HASH_VALUE_TOO_LONG;                            \
-	}                                                                   \
-	else                                                                \
-	{                                                                   \
-		rv = S_OK;                                                      \
-		struct mapCharChar *s;                                          \
-		HASH_FIND_STR(dict, pair_key, s);                               \
-		if (s==NULL) {                                                  \
-		  s = (struct mapCharChar *)malloc(sizeof *s);                  \
-		  strcpy(s->key, pair_key);                                     \
-		  HASH_ADD_STR(dict, key, s );                                  \
-		}                                                               \
-        else                                                            \
-		{                                                               \
-			rv = S_ADV_TAG_REPLACED;                                    \
-		}                                                               \
-		strcpy(s->value, pair_value);                                   \
-	}                                                                   \
-} while (0)                                                             \
-
+	do {                                                                    \
+		if (strlen(pair_key) > MAX_MAP_KEY)                                 \
+		{                                                                   \
+			rv = E_ADV_FILE_HASH_KEY_TOO_LONG;                              \
+		}                                                                   \
+		else if (strlen(pair_value) > MAX_MAP_VALUE)                        \
+		{                                                                   \
+			rv = E_ADV_FILE_HASH_VALUE_TOO_LONG;                            \
+		}                                                                   \
+		else                                                                \
+		{                                                                   \
+			rv = S_OK;                                                      \
+			struct mapCharChar *s;                                          \
+			HASH_FIND_STR(dict, pair_key, s);                               \
+			if (s==NULL) {                                                  \
+				s = (struct mapCharChar *)malloc(sizeof *s);                  \
+				strcpy(s->key, pair_key);                                     \
+				HASH_ADD_STR(dict, key, s );                                  \
+			}                                                               \
+			else                                                            \
+			{                                                               \
+				rv = S_ADV_TAG_REPLACED;                                    \
+			}                                                               \
+			strcpy(s->value, pair_value);                                   \
+		}                                                                   \
+	} while (0)                                                             \
+		 
 #define MAP_ADD_INT_IMG_LAYOUT(pair_key,typ,cmpr,bpp,dict,rv)           \
-do {                                                                    \
-	if (strlen(typ) > MAX_MAP_VALUE || strlen(cmpr) > MAX_MAP_VALUE)    \
-    {                                                                   \
-	    rv = E_ADV_FILE_HASH_VALUE_TOO_LONG;                            \
-	}                                                                   \
-	else                                                                \
-	{                                                                   \
-		rv = S_OK;                                                      \
-		struct mapIntImageLayout *s;                                    \
-		HASH_FIND_INT(dict, &pair_key, s);                              \
-		if (s==NULL) {                                                  \
-		  s = (struct mapIntImageLayout *)malloc(sizeof *s);            \
-		  s->key = pair_key;                                            \
-		  HASH_ADD_INT(dict, pair_key, s );                                  \
-		}                                                               \
-        else                                                            \
-		{                                                               \
-			rv = S_ADV_TAG_REPLACED;                                    \
-		}                                                               \
-		strcpy(s->layoutType, typ);                                     \
-		strcpy(s->compression, cmpr);                                   \
-		s->layoutBpp = bpp;                                             \
-	}                                                                   \
-} while (0)                                                             \
-
+	do {                                                                    \
+		if (strlen(typ) > MAX_MAP_VALUE || strlen(cmpr) > MAX_MAP_VALUE)    \
+		{                                                                   \
+			rv = E_ADV_FILE_HASH_VALUE_TOO_LONG;                            \
+		}                                                                   \
+		else                                                                \
+		{                                                                   \
+			rv = S_OK;                                                      \
+			struct mapIntImageLayout *s;                                    \
+			HASH_FIND_INT(dict, &pair_key, s);                              \
+			if (s==NULL) {                                                  \
+				s = (struct mapIntImageLayout *)malloc(sizeof *s);            \
+				s->key = pair_key;                                            \
+				HASH_ADD_INT(dict, pair_key, s );                                  \
+			}                                                               \
+			else                                                            \
+			{                                                               \
+				rv = S_ADV_TAG_REPLACED;                                    \
+			}                                                               \
+			strcpy(s->layoutType, typ);                                     \
+			strcpy(s->compression, cmpr);                                   \
+			s->layoutBpp = bpp;                                             \
+		}                                                                   \
+	} while (0)                                                             \
+		 
 #define MAP_FREE_STR_STR(dict)                                          \
-do {                                                                    \
-	struct mapCharChar *current_item, *tmp;                             \
-	HASH_ITER(hh, dict, current_item, tmp) {                            \
-	HASH_DEL(dict,current_item);                                        \
-	   free(current_item);                                              \
-	}                                                                   \
-} while (0)                                                             \
-
+	do {                                                                    \
+		struct mapCharChar *current_item, *tmp;                             \
+		HASH_ITER(hh, dict, current_item, tmp) {                            \
+			HASH_DEL(dict,current_item);                                        \
+			free(current_item);                                              \
+		}                                                                   \
+	} while (0)                                                             \
+		 
 #define MAP_FREE_INT_INT(dict)                                          \
-do {                                                                    \
-	struct mapIntInt *current_item, *tmp;                               \
-	HASH_ITER(hh, dict, current_item, tmp) {                            \
-	HASH_DEL(dict,current_item);                                        \
-	   free(current_item);                                              \
-	}                                                                   \
-} while (0)                                                             \
-
+	do {                                                                    \
+		struct mapIntInt *current_item, *tmp;                               \
+		HASH_ITER(hh, dict, current_item, tmp) {                            \
+			HASH_DEL(dict,current_item);                                        \
+			free(current_item);                                              \
+		}                                                                   \
+	} while (0)                                                             \
+		 
 #define MAP_FREE_INT_STR(dict)                                          \
-do {                                                                    \
-	struct mapIntChar *current_item, *tmp;                              \
-	HASH_ITER(hh, dict, current_item, tmp) {                            \
-	HASH_DEL(dict,current_item);                                        \
-	   free(current_item);                                              \
-	}                                                                   \
-} while (0)                                                             \
-
+	do {                                                                    \
+		struct mapIntChar *current_item, *tmp;                              \
+		HASH_ITER(hh, dict, current_item, tmp) {                            \
+			HASH_DEL(dict,current_item);                                        \
+			free(current_item);                                              \
+		}                                                                   \
+	} while (0)                                                             \
+		 
 #define MAP_FREE_STR_INT(dict)                                          \
-do {                                                                    \
-	struct mapCharInt *current_item, *tmp;                              \
-	HASH_ITER(hh, dict, current_item, tmp) {                            \
-	HASH_DEL(dict,current_item);                                        \
-	   free(current_item);                                              \
-	}                                                                   \
-} while (0)                                                             \
-
+	do {                                                                    \
+		struct mapCharInt *current_item, *tmp;                              \
+		HASH_ITER(hh, dict, current_item, tmp) {                            \
+			HASH_DEL(dict,current_item);                                        \
+			free(current_item);                                              \
+		}                                                                   \
+	} while (0)                                                             \
+		 
 #define MAP_FREE_INT_INT64(dict)                                        \
-do {                                                                    \
-	struct mapIntInt64 *current_item, *tmp;                             \
-	HASH_ITER(hh, dict, current_item, tmp) {                            \
-	HASH_DEL(dict,current_item);                                        \
-	   free(current_item);                                              \
-	}                                                                   \
-} while (0)                                                             \
-
+	do {                                                                    \
+		struct mapIntInt64 *current_item, *tmp;                             \
+		HASH_ITER(hh, dict, current_item, tmp) {                            \
+			HASH_DEL(dict,current_item);                                        \
+			free(current_item);                                              \
+		}                                                                   \
+	} while (0)                                                             \
+		 
 #define MAP_FREE_INT_FLOAT(dict)                                        \
-do {                                                                    \
-	struct mapIntFloat *current_item, *tmp;                             \
-	HASH_ITER(hh, dict, current_item, tmp) {                            \
-	HASH_DEL(dict,current_item);                                        \
-	   free(current_item);                                              \
-	}                                                                   \
-} while (0)                                                             \
-
+	do {                                                                    \
+		struct mapIntFloat *current_item, *tmp;                             \
+		HASH_ITER(hh, dict, current_item, tmp) {                            \
+			HASH_DEL(dict,current_item);                                        \
+			free(current_item);                                              \
+		}                                                                   \
+	} while (0)                                                             \
+		 
 #define MAP_FREE_INT_IMG_LAYOUT(dict)                                   \
-do {                                                                    \
-	struct mapIntImageLayout *current_item, *tmp;                       \
-	HASH_ITER(hh, dict, current_item, tmp) {                            \
-	HASH_DEL(dict,current_item);                                        \
-	   free(current_item);                                              \
-	}                                                                   \
-} while (0)  
+	do {                                                                    \
+		struct mapIntImageLayout *current_item, *tmp;                       \
+		HASH_ITER(hh, dict, current_item, tmp) {                            \
+			HASH_DEL(dict,current_item);                                        \
+			free(current_item);                                              \
+		}                                                                   \
+	} while (0)
 
 struct mapCharChar *m_FileTags = NULL;
 struct mapCharChar *m_UserMetadataTags = NULL;
@@ -311,9 +315,14 @@ struct mapCharChar *m_CalibrationStreamTags = NULL;
 int TotalNumberOfMainFrames;
 int TotalNumberOfCalibrationFrames;
 unsigned char *m_FrameBytes;
-		
+int64_t m_FirstFrameInStreamTicks[2];
+int64_t m_PrevFrameInStreamTicks[2];
+
+unsigned char m_CurrentStreamId;
+int64_t m_CurrentFrameElapsedTicks;
+
 // Image Section
-#define UNINITIALIZED_LAYOUT_ID 0	
+#define UNINITIALIZED_LAYOUT_ID 0
 unsigned char m_PreviousLayoutId;
 unsigned int m_NumFramesInThisLayoutId;
 bool m_ImageSectionSet = false;
@@ -330,7 +339,7 @@ struct mapIntImageLayout *m_ImageLayouts = NULL;
 bool m_RGBorBGR;
 bool m_SectionDefinitionMode;
 int m_MaxImageLayoutFrameBufferSize;
-		
+
 unsigned int m_Width;
 unsigned int m_Height;
 unsigned char m_DataBpp;
@@ -342,7 +351,7 @@ bool IsColourImage;
 char ImageBayerPattern[128];
 
 // Status Section
-int MaxFrameBufferSize;
+int StatusSectionMaxFrameBufferSize;
 int64_t UtcTimestampAccuracyInNanoseconds;
 int64_t m_UtcStartTimeNanosecondsSinceAdvZeroEpoch;
 unsigned int m_UtcExposureNanoseconds;
@@ -352,6 +361,9 @@ bool m_SectionDefinitionMode;
 UT_array *m_TagDefinitionNames = NULL;
 
 struct mapCharInt *m_TagDefinition = NULL;
+
+UT_array *m_MainIndex = NULL;
+UT_array *m_CalibrationIndex = NULL;
 
 struct mapIntChar *m_FrameStatusTags = NULL;
 struct mapIntInt *m_FrameStatusTagsUInt8 = NULL;

@@ -230,7 +230,7 @@ ADVRESULT AdvDefineStatusSection(int64_t utcTimestampAccuracyInNanoseconds)
 	if (g_AdvFile == 0)
 		return E_ADV_NOFILE;
 
-	MaxFrameBufferSize = 0;
+	StatusSectionMaxFrameBufferSize = 0;
 	UtcTimestampAccuracyInNanoseconds = utcTimestampAccuracyInNanoseconds;
 
     utarray_new(m_TagDefinitionNames, &ut_str_icd);
@@ -247,27 +247,27 @@ void AdvUpdateMaxBuffSize(int tagType, int direction)
 	switch(tagType)
 	{
 		case Int8:
-			MaxFrameBufferSize+=1*direction;
+			StatusSectionMaxFrameBufferSize+=1*direction;
 			break;
 			
 		case Int16:
-			MaxFrameBufferSize+=2*direction;
+			StatusSectionMaxFrameBufferSize+=2*direction;
 			break;
 
 		case Int32:
-			MaxFrameBufferSize+=4*direction;
+			StatusSectionMaxFrameBufferSize+=4*direction;
 			break;
 			
 		case Long64:
-			MaxFrameBufferSize+=8*direction;
+			StatusSectionMaxFrameBufferSize+=8*direction;
 			break;
 			
 		case Real4:
-			MaxFrameBufferSize+=4*direction;
+			StatusSectionMaxFrameBufferSize+=4*direction;
 			break;	
 			
 		case UTF8String:
-			MaxFrameBufferSize+=0x10001*direction;
+			StatusSectionMaxFrameBufferSize+=0x10001*direction;
 			break;
 	}	
 }
@@ -412,7 +412,7 @@ ADVRESULT AdvFile_EndFile()
 	
 	// TODO:
 	//if (nullptr != m_Index)
-	//	m_Index->WriteIndex(m_Adv2File);
+	//	m_Index->WriteIndex(g_AdvFile);
 		
 	int64_t userMetaTableOffset;
 	advfgetpos64(m_AdvFile, &userMetaTableOffset);
@@ -498,8 +498,15 @@ ADVRESULT AdvEndFile()
 	
 	// Image section
 	MAP_FREE_INT_IMG_LAYOUT(m_ImageLayouts);
+
+	if (g_FileStarted)
+	{
+		utarray_free(m_MainIndex);
+		utarray_free(m_CalibrationIndex);
+	}
 	
 	g_FileStarted = false;
+	
 	return rv;
 }
 
@@ -508,9 +515,419 @@ ADVRESULT AdvBeginFrameWithTicks(unsigned int streamId, int64_t startFrameTicks,
 	return E_NOTIMPL;
 }
 
+void WriteImageSectionHeader(FILE* pFile)
+{
+	unsigned char buffChar;
+	
+	buffChar = 2;
+	advfwrite(&buffChar, 1, 1, pFile); /* Version */
+
+	
+	advfwrite(&m_Width, 4, 1, pFile);
+	advfwrite(&m_Height, 4, 1, pFile);
+	advfwrite(&m_DataBpp, 1, 1, pFile);
+	
+	buffChar = (unsigned char)HASH_COUNT(m_ImageLayouts);
+	advfwrite(&buffChar, 1, 1, pFile);
+	
+	struct mapIntImageLayout *currIml;
+
+    for(currIml=m_ImageLayouts; currIml != NULL; currIml=currIml->hh.next) 
+	{
+		char layoutId = currIml->key;	
+		advfwrite(&layoutId, 1, 1, pFile);
+
+		buffChar = 2;
+		advfwrite(&buffChar, 1, 1, pFile); /* Version */
+
+		buffChar = currIml->layoutBpp;
+		advfwrite(&buffChar, 1, 1, pFile);
+
+		buffChar = 2;
+		advfwrite(&buffChar, 1, 1, pFile);
+		
+		WriteUTF8String(pFile, "DATA-LAYOUT");
+		WriteUTF8String(pFile, currIml->layoutType);
+		
+		WriteUTF8String(pFile, "SECTION-DATA-COMPRESSION");
+		WriteUTF8String(pFile, currIml->compression);
+    }
+		
+	buffChar = (unsigned char)HASH_COUNT(m_ImageTags);
+	advfwrite(&buffChar, 1, 1, pFile);
+
+	struct mapCharChar *curr;
+
+	for(curr=m_ImageTags; curr != NULL; curr=curr->hh.next) {
+		WriteUTF8String(pFile, curr->key);
+		WriteUTF8String(pFile, curr->value);
+	}		
+}
+
+void WriteStatusSectionHeader(FILE* pFile)
+{
+	unsigned char buffChar;
+	
+	buffChar = 2;
+	advfwrite(&buffChar, 1, 1, pFile); /* Version */
+	
+	advfwrite(&UtcTimestampAccuracyInNanoseconds, 8, 1, pFile);
+
+	buffChar = (unsigned char)utarray_len(m_TagDefinitionNames);
+	advfwrite(&buffChar, 1, 1, pFile);
+	int tagCount = buffChar;
+	int tagIndex;
+	for(tagIndex = 0; tagIndex<tagCount; tagIndex++)
+	{
+		char** tagName = (char**)utarray_eltptr(m_TagDefinitionNames, tagIndex);
+		
+		WriteUTF8String(pFile, *tagName);
+		
+		struct mapCharInt *currDef;
+
+		HASH_FIND_STR( m_TagDefinition, *tagName, currDef );
+
+		buffChar = (unsigned char)(currDef->value);
+		advfwrite(&buffChar, 1, 1, pFile);
+	}
+
+	m_SectionDefinitionMode = false;	
+}
+
+unsigned char CURRENT_DATAFORMAT_VERSION = 2;
+
+ADVRESULT AdvBeginFile()
+{
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+	
+	if (!m_ImageSectionSet)
+		return E_ADV_IMAGE_SECTION_UNDEFINED;
+
+	if (!m_StatusSectionSet)
+		return E_ADV_STATUS_SECTION_UNDEFINED;
+			
+	if (HASH_COUNT(m_ImageLayouts) == 0)
+		return E_ADV_IMAGE_LAYOUTS_UNDEFINED;		
+
+	unsigned int buffInt;
+	int64_t buffLong;
+	unsigned char buffChar;
+	
+	buffInt = 0x46545346;
+	advfwrite(&buffInt, 4, 1, g_AdvFile);
+	advfwrite(&CURRENT_DATAFORMAT_VERSION, 1, 1, g_AdvFile);
+
+	buffInt = 0;
+	buffLong = 0;
+	advfwrite(&buffInt, 4, 1, g_AdvFile); // 0x00000000 (Reserved)
+	advfwrite(&buffLong, 8, 1, g_AdvFile); // Offset of index table (will be saved later) 
+	advfwrite(&buffLong, 8, 1, g_AdvFile); // Offset of system metadata table (will be saved later) 
+	advfwrite(&buffLong, 8, 1, g_AdvFile); // Offset of user metadata table (will be saved later) 
+
+	buffChar = (unsigned char)2;
+	advfwrite(&buffChar, 1, 1, g_AdvFile); // Number of streams (main and calibration) 
+	
+	int64_t streamHeaderOffsetPositions[2];
+	int64_t streamHeaderOffsets[2];
+
+	int64_t internalFrequency = advgetclockresolution();
+	if (!m_UsesExternalMainStreamClock)
+	{
+		m_MainStreamClockFrequency = internalFrequency;
+		m_MainStreamTickAccuracy = 0; // Unknown accuracy as it is 'automatically' timestamped at frame save time
+	}
+
+	WriteUTF8String(g_AdvFile, "MAIN");
+	advfgetpos64(g_AdvFile, &m_MainFrameCountPosition);
+	buffInt = 0;
+	advfwrite(&buffInt, 4, 1, g_AdvFile); // Number of frames saved in the Main stream
+	buffLong = m_MainStreamClockFrequency;
+	advfwrite(&buffLong, 8, 1, g_AdvFile);
+	buffInt = m_MainStreamTickAccuracy;
+	advfwrite(&buffInt, 4, 1, g_AdvFile);
+	advfgetpos64(g_AdvFile, &streamHeaderOffsetPositions[0]);
+	buffLong = 0;
+	advfwrite(&buffLong, 8, 1, g_AdvFile); // Offset of main stream metadata table (will be saved later) 
+
+	if (!m_UsesExternalCalibrationStreamClock)
+	{
+		m_CalibrationStreamClockFrequency = internalFrequency;
+		m_CalibrationStreamTickAccuracy = 0; // Unknown accuracy as it is 'automatically' timestamped at frame save time
+	}
+
+	WriteUTF8String(g_AdvFile, "CALIBRATION");
+	advfgetpos64(g_AdvFile, &m_CalibrationFrameCountPosition);
+	buffInt = 0;
+	advfwrite(&buffInt, 4, 1, g_AdvFile); // Number of frames saved in the Calibration stream
+	buffLong = m_CalibrationStreamClockFrequency;
+	advfwrite(&buffLong, 8, 1, g_AdvFile);
+	buffInt = m_CalibrationStreamTickAccuracy;
+	advfwrite(&buffInt, 4, 1, g_AdvFile);
+	advfgetpos64(g_AdvFile, &streamHeaderOffsetPositions[1]);
+	buffLong = 0;
+	advfwrite(&buffLong, 8, 1, g_AdvFile); // Offset of Calibration stream metadata table (will be saved later) 
+
+	buffChar = (unsigned char)2;
+	advfwrite(&buffChar, 1, 1, g_AdvFile); // Number of sections (image and status) 
+
+	int64_t sectionHeaderOffsetPositions[2];
+	
+	WriteUTF8String(g_AdvFile, "IMAGE");
+	advfgetpos64(g_AdvFile, &sectionHeaderOffsetPositions[0]);
+	buffLong = 0;
+	advfwrite(&buffLong, 8, 1, g_AdvFile);
+	
+	WriteUTF8String(g_AdvFile, "STATUS");
+	advfgetpos64(g_AdvFile, &sectionHeaderOffsetPositions[1]);
+	buffLong = 0;
+	advfwrite(&buffLong, 8, 1, g_AdvFile);
+	
+	// Write main stream metadata table
+	unsigned char mainTagsCount = (unsigned char)HASH_COUNT(m_MainStreamTags);
+	advfgetpos64(g_AdvFile, &streamHeaderOffsets[0]);
+	
+	advfwrite(&mainTagsCount, 1, 1, g_AdvFile);
+	
+	struct mapCharChar *curr;
+
+    for(curr=m_MainStreamTags; curr != NULL; curr=curr->hh.next) {
+		WriteUTF8String(g_AdvFile, curr->key);
+		WriteUTF8String(g_AdvFile, curr->value);
+    }
+
+	// Write calibration stream metadata table
+	unsigned char calibrationTagsCount = (unsigned char)HASH_COUNT(m_CalibrationStreamTags);
+	advfgetpos64(g_AdvFile, &streamHeaderOffsets[1]);
+	
+	advfwrite(&calibrationTagsCount, 1, 1, g_AdvFile);
+
+	for(curr=m_CalibrationStreamTags; curr != NULL; curr=curr->hh.next) {
+		WriteUTF8String(g_AdvFile, curr->key);
+		WriteUTF8String(g_AdvFile, curr->value);
+    }
+
+	advfsetpos64(g_AdvFile, &streamHeaderOffsetPositions[0]);
+	advfwrite(&streamHeaderOffsets[0], 8, 1, g_AdvFile);
+	
+	advfsetpos64(g_AdvFile, &streamHeaderOffsetPositions[1]);
+	advfwrite(&streamHeaderOffsets[1], 8, 1, g_AdvFile);
+
+	advfseek(g_AdvFile, 0, SEEK_END);
+	
+	// Write section headers
+	int64_t sectionHeaderOffsets[2];
+	advfgetpos64(g_AdvFile, &sectionHeaderOffsets[0]);
+	WriteImageSectionHeader(g_AdvFile);
+	
+	advfgetpos64(g_AdvFile, &sectionHeaderOffsets[1]);
+	WriteStatusSectionHeader(g_AdvFile);
+
+	// Write section headers positions
+	advfsetpos64(g_AdvFile, &sectionHeaderOffsetPositions[0]);
+	advfwrite(&sectionHeaderOffsets[0], 8, 1, g_AdvFile);
+	advfsetpos64(g_AdvFile, &sectionHeaderOffsetPositions[1]);
+	advfwrite(&sectionHeaderOffsets[1], 8, 1, g_AdvFile);
+	
+	advfseek(g_AdvFile, 0, SEEK_END);
+
+	// Write system metadata table
+	int64_t systemMetadataTablePosition;
+	advfgetpos64(g_AdvFile, &systemMetadataTablePosition);
+	
+	unsigned int fileTagsCount = (unsigned int)HASH_COUNT(m_FileTags);
+	advfwrite(&fileTagsCount, 4, 1, g_AdvFile);
+	
+	for(curr=m_FileTags; curr != NULL; curr=curr->hh.next) {
+		WriteUTF8String(g_AdvFile, curr->key);
+		WriteUTF8String(g_AdvFile, curr->value);
+    }
+	
+	// Write system metadata table position to the file header
+	advfseek(g_AdvFile, 0x11, SEEK_SET);
+	advfwrite(&systemMetadataTablePosition, 8, 1, g_AdvFile);
+	
+	advfseek(g_AdvFile, 0, SEEK_END);
+	
+	utarray_new(m_MainIndex, &ut_str_icd);
+	utarray_new(m_CalibrationIndex, &ut_str_icd);
+	
+	advfflush(g_AdvFile);
+		
+	m_MainFrameNo = 0;
+	m_CalibrationFrameNo = 0;
+    m_FileDefinitionMode = false;
+	
+	return S_OK;
+}
+
+int GetLayoutMaxFrameBufferSize(struct mapIntImageLayout *curr)
+{
+	if (curr->layoutBpp == 8)
+	{
+		return m_Width * m_Height + 1 + 4 + 16;
+	}
+	else if (curr->layoutBpp == 12)
+	{
+		return (m_Width * m_Height * 3 / 2) + 1 + 4 + 2 * ((m_Width * m_Height) % 2) + 16;
+	}
+	else if (curr->layoutBpp == 16)
+	{
+		return (m_Width * m_Height * 2) + 1 + 4 + 16;
+	}
+	else 
+		return m_Width * m_Height * 4 + 1 + 4 + 16;	
+}
+
+ADVRESULT ImageSectionMaxFrameBufferSize(int* maxImageBuffer)
+{
+	if (m_SectionDefinitionMode)
+		return E_ADV_CHANGE_NOT_ALLOWED_RIGHT_NOW;
+
+	// Max frame buffer size is the max frame buffer size of the largest image layout
+	if (m_MaxImageLayoutFrameBufferSize == -1)
+	{
+		struct mapIntImageLayout *curr;
+
+		for(curr=m_ImageLayouts; curr != NULL; curr=curr->hh.next) {
+			int maxBuffSize = GetLayoutMaxFrameBufferSize(curr);
+				
+			if (m_MaxImageLayoutFrameBufferSize < maxBuffSize) 
+				m_MaxImageLayoutFrameBufferSize = maxBuffSize;
+		}			
+	}
+		
+	*maxImageBuffer = m_MaxImageLayoutFrameBufferSize;
+	return S_OK;	
+}
+
+int IndexGetFramesCount(unsigned int streamId)
+{
+	if (streamId == 0)
+		return (unsigned int)utarray_len(m_MainIndex);
+	else
+		return (unsigned int)utarray_len(m_CalibrationIndex);
+}
+
+ADVRESULT ImageSectionBeginFrame()
+{
+	if (HASH_COUNT(m_ImageLayouts) == 0)
+		return E_ADV_IMAGE_LAYOUTS_UNDEFINED;
+
+	m_SectionDefinitionMode = false;
+
+	return S_OK;
+}
+
+ADVRESULT StatusSectionBeginFrame(int64_t utcStartTimeNanosecondsSinceAdvZeroEpoch, unsigned int utcExposureNanoseconds)
+{
+	MAP_FREE_INT_STR(m_FrameStatusTags);
+	MAP_FREE_INT_INT(m_FrameStatusTagsUInt8);
+	MAP_FREE_INT_INT(m_FrameStatusTagsUInt16);
+	MAP_FREE_INT_INT(m_FrameStatusTagsUInt32);
+	MAP_FREE_INT_INT64(m_FrameStatusTagsUInt64);
+	MAP_FREE_INT_FLOAT(m_FrameStatusTagsReal);	
+
+	m_UtcStartTimeNanosecondsSinceAdvZeroEpoch = utcStartTimeNanosecondsSinceAdvZeroEpoch;
+	m_UtcExposureNanoseconds = utcExposureNanoseconds;
+
+	m_SectionDefinitionMode = false;
+
+	return S_OK;	
+}
+
 ADVRESULT AdvBeginFrame(unsigned int streamId, int64_t utcStartTimeNanosecondsSinceAdvZeroEpoch, unsigned int utcExposureNanoseconds)
 {
-	return E_NOTIMPL;
+	ADVRESULT rv = S_OK;
+	
+	if (!g_FileStarted)
+	{
+		rv = AdvBeginFile();
+		if (rv == S_OK)
+		{
+			g_FileStarted = true;
+		}
+		else
+		{
+			g_FileStarted = false;
+			return rv;
+		}
+	}
+
+	if (streamId != 0 && streamId != 1)
+		return E_ADV_INVALID_STREAM_ID;
+	
+	int64_t endFrameTicks = advgetclockticks();
+
+	if (IndexGetFramesCount(streamId) == 0)
+	{
+		// First frame in stream
+		m_FirstFrameInStreamTicks[streamId] = endFrameTicks;
+		m_PrevFrameInStreamTicks[streamId] = endFrameTicks;
+	}
+
+	int64_t startFrameTicks = m_PrevFrameInStreamTicks[streamId];
+	m_PrevFrameInStreamTicks[streamId] = endFrameTicks;
+	int64_t elapsedTicksSinceFirstFrame = endFrameTicks - m_FirstFrameInStreamTicks[streamId];
+	
+	advfgetpos64(g_AdvFile, &m_NewFrameOffset);
+
+	m_FrameBufferIndex = 0;
+	m_CurrentStreamId = streamId;
+
+	m_CurrentFrameElapsedTicks = elapsedTicksSinceFirstFrame;
+		
+	if (m_FrameBytes == NULL)
+	{
+		int imageBufferSize = 0;
+		rv = ImageSectionMaxFrameBufferSize(&imageBufferSize);
+		if (!SUCCEEDED(rv))
+			return rv;
+
+		int maxUncompressedBufferSize = 
+			4 + // frame start magic
+			8 + // timestamp
+			4 + // exposure			
+			4 + 4 + // the length of each of the 2 sections 
+			StatusSectionMaxFrameBufferSize +
+			imageBufferSize + 
+			100; // Just in case
+		
+		m_FrameBytes = (char*)malloc(maxUncompressedBufferSize * sizeof(unsigned char));
+	};		
+	
+	m_FrameBytes[0] = streamId;
+
+	// Add the start timestamp
+	m_FrameBytes[1] = (unsigned char)(startFrameTicks & 0xFF);
+	m_FrameBytes[2] = (unsigned char)((startFrameTicks >> 8) & 0xFF);
+	m_FrameBytes[3] = (unsigned char)((startFrameTicks >> 16) & 0xFF);
+	m_FrameBytes[4] = (unsigned char)((startFrameTicks >> 24) & 0xFF);
+	m_FrameBytes[5] = (unsigned char)((startFrameTicks >> 32) & 0xFF);
+	m_FrameBytes[6] = (unsigned char)((startFrameTicks >> 40) & 0xFF);
+	m_FrameBytes[7] = (unsigned char)((startFrameTicks >> 48) & 0xFF);
+	m_FrameBytes[8] = (unsigned char)((startFrameTicks >> 56) & 0xFF);
+	
+	// Add the end timestamp
+	m_FrameBytes[9] = (unsigned char)(endFrameTicks & 0xFF);
+	m_FrameBytes[10] = (unsigned char)((endFrameTicks >> 8) & 0xFF);
+	m_FrameBytes[11] = (unsigned char)((endFrameTicks >> 16) & 0xFF);
+	m_FrameBytes[12] = (unsigned char)((endFrameTicks >> 24) & 0xFF);
+	m_FrameBytes[13] = (unsigned char)((endFrameTicks >> 32) & 0xFF);
+	m_FrameBytes[14] = (unsigned char)((endFrameTicks >> 40) & 0xFF);
+	m_FrameBytes[15] = (unsigned char)((endFrameTicks >> 48) & 0xFF);
+	m_FrameBytes[16] = (unsigned char)((endFrameTicks >> 56) & 0xFF);
+	
+	m_FrameBufferIndex = 17;
+	
+	rv = ImageSectionBeginFrame();	
+	if (rv != S_OK) return rv;
+
+	rv = StatusSectionBeginFrame(utcStartTimeNanosecondsSinceAdvZeroEpoch, utcExposureNanoseconds);
+	if (rv != S_OK) return rv;
+
+	m_FrameStarted = true;
+	return S_OK;
 }
 
 ADVRESULT AdvFrameAddImage(unsigned char layoutId, unsigned short* pixels, unsigned char pixelsBpp)

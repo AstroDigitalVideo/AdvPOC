@@ -458,6 +458,42 @@ void TestAdvFrameAddStatusTagUTF8String(CuTest *tc)
 	CuAssertIntEquals(tc, E_ADV_FILE_NOT_OPEN, rv);		
 }
 
+void TestAdvBeginFile(CuTest *tc)
+{
+	ADVRESULT rv = AdvBeginFrame(0, 0, 0);
+	CuAssertIntEquals(tc, E_ADV_NOFILE, rv);
+	
+	rv = AdvNewFile("test.adv", true);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+	rv = AdvBeginFrame(0, 0, 0);
+	CuAssertIntEquals(tc, E_ADV_IMAGE_SECTION_UNDEFINED, rv);
+		
+	rv = AdvDefineImageSection(800, 600, 16);
+	CuAssertIntEquals(tc, S_OK, rv);
+
+	rv = AdvBeginFrame(0, 0, 0);
+	CuAssertIntEquals(tc, E_ADV_STATUS_SECTION_UNDEFINED, rv);
+	
+	rv = AdvDefineStatusSection(1 * MILLI_TO_NANO);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+	rv = AdvBeginFrame(0, 0, 0);
+	CuAssertIntEquals(tc, E_ADV_IMAGE_LAYOUTS_UNDEFINED, rv);
+	
+	rv = AdvDefineImageLayout(0, "FULL-IMAGE-RAW", "UNCOMPRESSED", 16);
+	CuAssertIntEquals(tc, S_OK, rv);
+
+	rv = AdvBeginFrame(2, 0, 0);
+	CuAssertIntEquals(tc, E_ADV_INVALID_STREAM_ID, rv);
+	
+	rv = AdvBeginFrame(0, 0, 0);
+	CuAssertIntEquals(tc, S_OK, rv);
+	
+	rv = AdvEndFile();
+	CuAssertIntEquals(tc, S_OK, rv);	
+}
+
 void TestAdvFile(CuTest *tc)
 {
 	AdvNewFile("test.adv", true);
@@ -518,5 +554,6 @@ CuSuite* TestBasicAdvGetSuite() {
 	SUITE_ADD_TEST(suite, TestAdvFrameAddStatusTag64);
 	SUITE_ADD_TEST(suite, TestAdvFrameAddStatusTagReal);
 	SUITE_ADD_TEST(suite, TestAdvFrameAddStatusTagUTF8String);
+	SUITE_ADD_TEST(suite, TestAdvBeginFile);
 	return suite;
 }
