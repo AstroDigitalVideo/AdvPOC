@@ -336,6 +336,8 @@ bool m_StatusSectionSet = false;
 struct mapCharChar *m_ImageTags = NULL;
 struct mapIntImageLayout *m_ImageLayouts = NULL;
 
+struct mapIntImageLayout *m_CurrentImageLayout = NULL;
+
 bool m_RGBorBGR;
 bool m_SectionDefinitionMode;
 int m_MaxImageLayoutFrameBufferSize;

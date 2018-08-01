@@ -510,11 +510,6 @@ ADVRESULT AdvEndFile()
 	return rv;
 }
 
-ADVRESULT AdvBeginFrameWithTicks(unsigned int streamId, int64_t startFrameTicks, int64_t endFrameTicks, int64_t elapsedTicksSinceFirstFrame, int64_t utcStartTimeNanosecondsSinceAdvZeroEpoch, unsigned int utcExposureNanoseconds)
-{
-	return E_NOTIMPL;
-}
-
 void WriteImageSectionHeader(FILE* pFile)
 {
 	unsigned char buffChar;
@@ -856,19 +851,47 @@ ADVRESULT AdvBeginFrame(unsigned int streamId, int64_t utcStartTimeNanosecondsSi
 
 	if (streamId != 0 && streamId != 1)
 		return E_ADV_INVALID_STREAM_ID;
-	
-	int64_t endFrameTicks = advgetclockticks();
 
+	int64_t endFrameTicks = advgetclockticks();
+	int64_t startFrameTicks = endFrameTicks;
+	int64_t elapsedTicksSinceFirstFrame = 0;
+	if (IndexGetFramesCount(streamId) > 0)
+	{
+		startFrameTicks = m_PrevFrameInStreamTicks[streamId];
+		elapsedTicksSinceFirstFrame = endFrameTicks - m_FirstFrameInStreamTicks[streamId];
+	}
+	
+	return AdvBeginFrameWithTicks(streamId, startFrameTicks, endFrameTicks, elapsedTicksSinceFirstFrame, utcStartTimeNanosecondsSinceAdvZeroEpoch, utcExposureNanoseconds);
+}
+
+ADVRESULT AdvBeginFrameWithTicks(unsigned int streamId, int64_t startFrameTicks, int64_t endFrameTicks, int64_t elapsedTicksSinceFirstFrame, int64_t utcStartTimeNanosecondsSinceAdvZeroEpoch, unsigned int utcExposureNanoseconds)
+{
+	ADVRESULT rv = S_OK;
+	
+	if (!g_FileStarted)
+	{
+		rv = AdvBeginFile();
+		if (rv == S_OK)
+		{
+			g_FileStarted = true;
+		}
+		else
+		{
+			g_FileStarted = false;
+			return rv;
+		}
+	}
+
+	if (streamId != 0 && streamId != 1)
+		return E_ADV_INVALID_STREAM_ID;
+	
 	if (IndexGetFramesCount(streamId) == 0)
 	{
 		// First frame in stream
-		m_FirstFrameInStreamTicks[streamId] = endFrameTicks;
-		m_PrevFrameInStreamTicks[streamId] = endFrameTicks;
+		m_FirstFrameInStreamTicks[streamId] = startFrameTicks;
 	}
 
-	int64_t startFrameTicks = m_PrevFrameInStreamTicks[streamId];
 	m_PrevFrameInStreamTicks[streamId] = endFrameTicks;
-	int64_t elapsedTicksSinceFirstFrame = endFrameTicks - m_FirstFrameInStreamTicks[streamId];
 	
 	advfgetpos64(g_AdvFile, &m_NewFrameOffset);
 
@@ -930,9 +953,109 @@ ADVRESULT AdvBeginFrame(unsigned int streamId, int64_t utcStartTimeNanosecondsSi
 	return S_OK;
 }
 
+bool Is12BitImagePackedImageLayout(struct mapIntImageLayout *imageLayout)
+{
+	return 0 == strcmp(imageLayout->layoutType, "12BIT-IMAGE-PACKED");
+}
+
+bool IsFullImageRawImageLayout(struct mapIntImageLayout *imageLayout)
+{
+	return 0 == strcmp(imageLayout->layoutType, "FULL-IMAGE-RAW");
+}
+
+unsigned char* ImageSectionGetDataBytes(unsigned char layoutId, unsigned short* pixels, int* imageBytesCount, unsigned char pixelsBpp,enum GetByteOperation operation)
+{
+	// TODO:
+}
+
+unsigned char* StatusSectionGetDataBytes(unsigned int * statusBytesCount)
+{
+	// TODO:
+}
+
+ADVRESULT AddFrameImageInternal(unsigned char layoutId, unsigned short* pixels, unsigned char pixelsBpp, enum GetByteOperation operation)
+{
+	unsigned int imageBytesCount = 0;	
+	unsigned char *imageBytes = ImageSectionGetDataBytes(layoutId, pixels, &imageBytesCount, pixelsBpp, operation);
+	
+	int imageSectionBytesCount = imageBytesCount + 2; // +1 byte for the layout id and +1 byte for the byteMode (See few lines below)
+	
+	m_FrameBytes[m_FrameBufferIndex] = imageSectionBytesCount & 0xFF;
+	m_FrameBytes[m_FrameBufferIndex + 1] = (imageSectionBytesCount >> 8) & 0xFF;
+	m_FrameBytes[m_FrameBufferIndex + 2] = (imageSectionBytesCount >> 16) & 0xFF;
+	m_FrameBytes[m_FrameBufferIndex + 3] = (imageSectionBytesCount >> 24) & 0xFF;
+	m_FrameBufferIndex+=4;
+	
+	// It is faster to write the layoutId and byteMode directly here
+	m_FrameBytes[m_FrameBufferIndex] = layoutId;
+	m_FrameBytes[m_FrameBufferIndex + 1] = 0; // byteMode of Normal (reserved for future use of differential coding)
+	m_FrameBufferIndex+=2;
+		
+	memcpy(&m_FrameBytes[m_FrameBufferIndex], &imageBytes[0], imageBytesCount);
+	m_FrameBufferIndex+= imageBytesCount;
+		
+	unsigned int statusBytesCount = 0;
+	unsigned char *statusBytes = StatusSectionGetDataBytes(&statusBytesCount);
+	
+	m_FrameBytes[m_FrameBufferIndex] = statusBytesCount & 0xFF;
+	m_FrameBytes[m_FrameBufferIndex + 1] = (statusBytesCount >> 8) & 0xFF;
+	m_FrameBytes[m_FrameBufferIndex + 2] = (statusBytesCount >> 16) & 0xFF;
+	m_FrameBytes[m_FrameBufferIndex + 3] = (statusBytesCount >> 24) & 0xFF;
+	m_FrameBufferIndex+=4;
+	
+	if (statusBytesCount > 0)
+	{
+		memcpy(&m_FrameBytes[m_FrameBufferIndex], &statusBytes[0], statusBytesCount);
+		m_FrameBufferIndex+=statusBytesCount;
+
+		free(statusBytes);
+	}
+	
+	m_ImageAdded = true;	
+}
+
+/* Assumed pixel format by AdvCore when this method is called
+
+    |    Layout Type    |  ImageLayout.Bpp |  Assumed Pixel Format                                         |
+    |  FULL-IMAGE-RAW   |    16, 12, 8     | 16-bit data (1 short per pixel)                               |
+    |12BIT-IMAGE-PACKED |    12            | 16-bit data (1 short per pixel) will be packed when storing   |
+    
+	All other combinations which are not listed above are invalid.
+*/
 ADVRESULT AdvFrameAddImage(unsigned char layoutId, unsigned short* pixels, unsigned char pixelsBpp)
 {
-	return E_NOTIMPL;
+	if (g_AdvFile == 0)
+		return E_ADV_NOFILE;
+
+	if (!m_ImageSectionSet)
+		return E_ADV_IMAGE_SECTION_UNDEFINED;
+
+	if (!m_FrameStarted)
+		return E_ADV_FRAME_NOT_STARTED;
+		
+	HASH_FIND_INT(m_ImageLayouts, &layoutId, m_CurrentImageLayout);
+	if (!m_CurrentImageLayout)
+	{
+		return E_ADV_INVALID_IMAGE_LAYOUT_ID;
+		
+	}
+	if (Is12BitImagePackedImageLayout(m_CurrentImageLayout) && m_DataBpp == 12)
+	{
+		AddFrameImageInternal(layoutId, pixels, pixelsBpp, ConvertTo12BitPacked);
+		return S_OK;
+	}
+	else if (IsFullImageRawImageLayout(m_CurrentImageLayout) && m_DataBpp == 8)
+	{
+		AddFrameImageInternal(layoutId, pixels, pixelsBpp, ConvertTo8BitBytesLooseHighByte);
+		return S_OK;
+	}
+	else if (IsFullImageRawImageLayout(m_CurrentImageLayout))
+	{
+		AddFrameImageInternal(layoutId, pixels, pixelsBpp, None);
+		return S_OK;
+	}
+
+	return E_FAIL;
 }
 
 ADVRESULT AdvFrameAddImageBytes(unsigned char layoutId, unsigned char* pixels, unsigned char pixelsBpp)
